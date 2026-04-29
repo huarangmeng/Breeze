@@ -34,6 +34,8 @@
 
 - [plan.md](plan.md)：项目总体计划（M0 → M6 里程碑与任务卡）
 - [architecture/overview.md](architecture/overview.md)：仓库架构基线（顶层模块、分层、响应式、演进路线）
+- [design/theme-tokens.md](design/theme-tokens.md)：主题 token 基线（颜色、圆角、间距、字型与扩展规则）
+- [design/responsive.md](design/responsive.md)：响应式基线（官方 adaptive、WindowInfo 包装层与布局切换规则）
 
 ## 根目录保留项
 

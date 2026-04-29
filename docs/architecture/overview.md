@@ -105,7 +105,7 @@ Feature 数量上来之后再拆 `:feature:chat` 等，现在先不拆。
 - `Medium 600~839dp`
 - `Expanded ≥ 840dp`
 
-单一事实源：`:core-ui/adaptive/WindowInfo` + `LocalWindowInfo`（已落地）。布局形态：Compact 单栏、Medium 单栏+抽屉、Expanded 双栏/三栏。
+单一事实源：`:core-ui/adaptive/WindowInfo` + `LocalWindowInfo`（已落地）。底层窗口分类使用官方 `Material3 Adaptive` 的 `currentWindowAdaptiveInfoV2()`，由 `Breeze WindowInfo` 再包装成项目语义。布局形态：Compact 单栏、Medium 单栏+抽屉、Expanded 双栏/三栏。
 
 交互底线：触控命中 ≥ `44dp`；关键操作不依赖 hover；底部输入不被手势区遮挡；`Expanded` 限制阅读宽度。
 
@@ -145,6 +145,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 | 能力       | 选型                                                 | 所在模块          |
 | ---------- | ---------------------------------------------------- | ----------------- |
 | UI         | Compose Multiplatform                                | `:core-ui` / 宿主 |
+| 响应式     | Material3 Adaptive + `WindowSizeClass`              | `:core-ui/adaptive` |
 | 导航       | `androidx.navigation:navigation-compose`（CMP 版）   | `:core-ui`        |
 | ViewModel  | `androidx.lifecycle:lifecycle-viewmodel*`            | `:composeApp`     |
 | 协程       | `kotlinx-coroutines`                                 | `:core` / `:data` |
@@ -195,8 +196,8 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 ## 11. 演进路线
 
 1. **M0 模块拆分** ✅（本次完成）：`:core` / `:core-ui` / `:domain` / `:data` 落地；`theme/` 迁入 `:core-ui`；`WindowInfo` 骨架就位；`libs.versions.toml` 补齐
-2. **M1 主题基线**：补 `BreezeShapes` / `BreezeSpacing` / `BreezeTypography`，清掉 `App.kt` 残留硬编码
-3. **M2 响应式接通**：宿主计算并 Provide `WindowInfo`；骨架页切换 Compact / Expanded
+2. **M1 主题基线** ✅（本次完成）：补 `BreezeShapes` / `BreezeSpacing` / `BreezeTypography`，清掉 `App.kt` 残留硬编码，并补 `docs/design/theme-tokens.md`
+3. **M2 响应式接通** ✅（本次完成）：引入官方 `Material3 Adaptive`，共享层统一映射 `WindowInfo`；骨架页切换 Compact / Expanded；补 `docs/design/responsive.md`
 4. **M3 基础设施**：Ktor / SQLDelight / Settings / Coil3 真正接入 `:data`
 5. **M4 导航 + feature 拆分**：navigation-compose 接入；按需拆 `:feature:chat` 等
 6. **M5 多 Provider**：`:data/llm/` 引入 OpenAI / 本地等
@@ -220,9 +221,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 
 ## 13. 当前差距
 
-- [ ] `:core-ui` 缺 `BreezeShapes` / `BreezeSpacing` / `BreezeTypography`
 - [ ] `:core-ui/components` / `:core-ui/navigation` 尚空
 - [ ] `:composeApp` 的 `App.kt` 仍是 demo 页，未拆到 feature
 - [ ] `:data` 只有占位 `InMemoryChatRepository`，Ktor / Room3 / Settings 尚未接入
-- [ ] 宿主尚未计算并 Provide `WindowInfo`
-- [ ] `docs/adr/`、`docs/design/`、`docs/platform/`、`docs/work-items/` 目录尚未建立
+- [ ] `docs/adr/`、`docs/platform/`、`docs/work-items/` 目录尚未建立

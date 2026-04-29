@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 
 enum class WidthClass { Compact, Medium, Expanded }
 enum class HeightClass { Compact, Medium, Expanded }
@@ -31,29 +32,17 @@ data class WindowInfo(
 
 val LocalWindowInfo = staticCompositionLocalOf { WindowInfo.Default }
 
-/**
- * 根据宽度 dp 计算 WindowInfo。断点与 AGENTS.md §4 对齐。
- */
-fun WindowInfo.Companion.from(widthDp: Int, heightDp: Int, isTouchPreferred: Boolean): WindowInfo {
-    val widthClass = when {
-        widthDp < 600 -> WidthClass.Compact
-        widthDp < 840 -> WidthClass.Medium
-        else -> WidthClass.Expanded
-    }
-    val heightClass = when {
-        heightDp < 480 -> HeightClass.Compact
-        heightDp < 900 -> HeightClass.Medium
-        else -> HeightClass.Expanded
-    }
+fun WindowInfo.Companion.from(
+    windowSizeClass: WindowSizeClass,
+    isTouchPreferred: Boolean,
+    contentMaxWidth: Dp,
+): WindowInfo {
+    val widthClass = windowSizeClass.toBreezeWidthClass()
+    val heightClass = windowSizeClass.toBreezeHeightClass()
     val paneMode = when (widthClass) {
         WidthClass.Compact -> PaneMode.Single
         WidthClass.Medium -> PaneMode.Single
         WidthClass.Expanded -> PaneMode.ListDetail
-    }
-    val contentMaxWidth = when (widthClass) {
-        WidthClass.Compact -> widthDp.dp
-        WidthClass.Medium -> 720.dp
-        WidthClass.Expanded -> 840.dp
     }
     return WindowInfo(
         widthClass = widthClass,
@@ -62,4 +51,16 @@ fun WindowInfo.Companion.from(widthDp: Int, heightDp: Int, isTouchPreferred: Boo
         contentMaxWidth = contentMaxWidth,
         paneMode = paneMode,
     )
+}
+
+private fun WindowSizeClass.toBreezeWidthClass(): WidthClass = when {
+    isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> WidthClass.Expanded
+    isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> WidthClass.Medium
+    else -> WidthClass.Compact
+}
+
+private fun WindowSizeClass.toBreezeHeightClass(): HeightClass = when {
+    isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND) -> HeightClass.Expanded
+    isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND) -> HeightClass.Medium
+    else -> HeightClass.Compact
 }

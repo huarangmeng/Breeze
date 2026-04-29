@@ -45,7 +45,6 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.contentNegotiation)
             implementation(libs.ktor.client.logging)
-            implementation(libs.ktor.client.sse)
             implementation(libs.ktor.serialization.kotlinxJson)
 
             implementation(libs.multiplatform.settings)
@@ -56,7 +55,7 @@ kotlin {
             // Room3 已原生支持 android / ios / jvm / js / wasmJs，DAO/Entity/Database
             // 声明统一放在 commonMain，各端通过 KSP 生成具体实现。
             implementation(libs.room.runtime)
-            implementation(libs.sqlite.bundled)
+            implementation(libs.sqlite)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)

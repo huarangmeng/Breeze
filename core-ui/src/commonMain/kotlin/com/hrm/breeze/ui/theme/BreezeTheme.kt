@@ -62,6 +62,21 @@ object BreezeTheme {
         @ReadOnlyComposable
         get() = MaterialTheme.colorScheme
 
+    val shapes: BreezeShapes
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalBreezeShapes.current
+
+    val spacing: BreezeSpacing
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalBreezeSpacing.current
+
+    val typography: BreezeTypography
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalBreezeTypography.current
+
     val extendedColors: BreezeExtendedColors
         @Composable
         @ReadOnlyComposable
@@ -75,12 +90,20 @@ fun BreezeAppTheme(
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     val extendedColors = if (darkTheme) DarkBreezeExtendedColors else LightBreezeExtendedColors
+    val shapes = DefaultBreezeShapes
+    val spacing = DefaultBreezeSpacing
+    val typography = DefaultBreezeTypography
 
     CompositionLocalProvider(
+        LocalBreezeShapes provides shapes,
+        LocalBreezeSpacing provides spacing,
+        LocalBreezeTypography provides typography,
         LocalBreezeExtendedColors provides extendedColors,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
+            typography = typography.asMaterialTypography(),
+            shapes = shapes.asMaterialShapes(),
             content = content,
         )
     }

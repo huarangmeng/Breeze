@@ -26,35 +26,35 @@
 
 ---
 
-## M1 主题基线 ⬜
+## M1 主题基线 ✅
 
 目标：补齐视觉 token 层，消除 `App.kt` 里的硬编码；确保所有页面视觉从主题层消费。
 
 | ID    | 任务                                                                          | 状态 |
 | ----- | ----------------------------------------------------------------------------- | ---- |
-| M1-1  | 新增 `BreezeShapes`（大/中/小圆角 + 气泡圆角），替换 `App.kt` 硬编码 `dp`       | ⬜   |
-| M1-2  | 新增 `BreezeSpacing`（xxs~xxl 阶梯），在 `BreezeTheme` 通过 CompositionLocal 暴露 | ⬜   |
-| M1-3  | 新增 `BreezeTypography`（title/body/label/code），接入 MaterialTheme.typography | ⬜   |
-| M1-4  | `App.kt` 里的所有硬编码颜色/圆角/间距切换到主题 token                          | ⬜   |
-| M1-5  | 补 `docs/design/theme-tokens.md`：token 命名、语义用途、扩展方式                | ⬜   |
+| M1-1  | 新增 `BreezeShapes`（大/中/小圆角 + 气泡圆角），替换 `App.kt` 硬编码 `dp`       | ✅   |
+| M1-2  | 新增 `BreezeSpacing`（xxs~xxl 阶梯），在 `BreezeTheme` 通过 CompositionLocal 暴露 | ✅   |
+| M1-3  | 新增 `BreezeTypography`（title/body/label/code），接入 MaterialTheme.typography | ✅   |
+| M1-4  | `App.kt` 里的所有硬编码颜色/圆角/间距切换到主题 token                          | ✅   |
+| M1-5  | 补 `docs/design/theme-tokens.md`：token 命名、语义用途、扩展方式                | ✅   |
 
 完成标准：`App.kt` 内搜不到 `.dp` 以外的硬编码颜色/圆角；新加页面只需 `BreezeTheme.xxx`。
 
 ---
 
-## M2 响应式接通 ⬜
+## M2 响应式接通 ✅
 
 目标：让 `LocalWindowInfo` 在各端宿主真实计算并 Provide，骨架页在 Compact / Expanded 间切换。
 
 | ID    | 任务                                                                          | 状态 |
 | ----- | ----------------------------------------------------------------------------- | ---- |
-| M2-1  | `:core-ui/adaptive` 增加 `rememberWindowInfo()` 助手，接入 `LocalWindowInfo`  | ⬜   |
-| M2-2  | Android 宿主：在 `MainActivity` 计算窗口尺寸并 Provide                         | ⬜   |
-| M2-3  | iOS 宿主：在 `MainViewController` 计算窗口尺寸并 Provide                       | ⬜   |
-| M2-4  | Desktop（jvmMain）：`main.kt` 监听窗口尺寸变化并 Provide                       | ⬜   |
-| M2-5  | Web（js / wasmJs）：监听 `window.innerWidth` 变化并 Provide                    | ⬜   |
-| M2-6  | 验证页：一个 sample screen 根据 `widthClass` 切换单栏 / 双栏布局                 | ⬜   |
-| M2-7  | 补 `docs/design/responsive.md`：断点、PaneMode、各端验证截图                     | ⬜   |
+| M2-1  | `:core-ui/adaptive` 增加 `rememberWindowInfo()` 助手，接入 `LocalWindowInfo`  | ✅   |
+| M2-2  | Android 宿主：在 `MainActivity` 计算窗口尺寸并 Provide                         | ✅   |
+| M2-3  | iOS 宿主：在 `MainViewController` 计算窗口尺寸并 Provide                       | ✅   |
+| M2-4  | Desktop（jvmMain）：`main.kt` 监听窗口尺寸变化并 Provide                       | ✅   |
+| M2-5  | Web（js / wasmJs）：监听 `window.innerWidth` 变化并 Provide                    | ✅   |
+| M2-6  | 验证页：一个 sample screen 根据 `widthClass` 切换单栏 / 双栏布局                 | ✅   |
+| M2-7  | 补 `docs/design/responsive.md`：断点、PaneMode、各端验证截图                     | ✅   |
 
 完成标准：五端运行时 `WindowInfo.widthClass` 真实反映窗口尺寸，sample screen 能看到形态切换。
 
