@@ -1,6 +1,6 @@
 package com.hrm.breeze.domain.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * 一个会话 / 历史记录。Message 列表本身不在这里持有，由 Repository 分流查询。

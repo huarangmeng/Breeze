@@ -39,7 +39,6 @@ kotlin {
             api(projects.domain)
 
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)
 
             implementation(libs.ktor.client.core)
@@ -50,6 +49,7 @@ kotlin {
             implementation(libs.multiplatform.settings)
             implementation(libs.multiplatform.settings.coroutines)
 
+            implementation(libs.coil.core)
             api(libs.coil.network.ktor)
 
             // Room3 已原生支持 android / ios / jvm / js / wasmJs，DAO/Entity/Database
@@ -59,12 +59,15 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.sqlite.bundled)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.sqlite.bundled)
         }
         jvmMain.dependencies {
             implementation(libs.ktor.client.java)
+            implementation(libs.sqlite.bundled)
         }
         jsMain.dependencies {
             implementation(libs.ktor.client.js)
@@ -72,12 +75,17 @@ kotlin {
             implementation(libs.sqlite.web)
         }
         wasmJsMain.dependencies {
+            implementation(libs.ktor.client.js)
             implementation(libs.sqlite.web)
+            implementation(libs.kotlinx.browser)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
+        }
+        jvmTest.dependencies {
+            implementation(libs.kotlin.testJunit)
         }
     }
 }

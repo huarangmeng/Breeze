@@ -1,6 +1,6 @@
 package com.hrm.breeze.domain.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * 一条聊天消息的领域模型。保持纯数据，不引入任何 UI / 网络类型。

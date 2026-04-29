@@ -1,8 +1,8 @@
 [versions]
 agp = "9.1.1"
-android-compileSdk = "36"
+android-compileSdk = "37"
 android-minSdk = "24"
-android-targetSdk = "36"
+android-targetSdk = "37"
 androidx-activity = "1.13.0"
 androidx-appcompat = "1.7.1"
 androidx-core = "1.18.0"
@@ -12,21 +12,20 @@ androidx-testExt = "1.3.0"
 composeHotReload = "1.0.0"
 composeMultiplatform = "1.10.3"
 junit = "4.13.2"
-kotlin = "2.3.20"
+kotlin = "2.3.21"
 kotlinx-coroutines = "1.10.2"
-kotlinx-datetime = "0.6.1"
-kotlinx-serialization = "1.7.3"
-ktor = "3.0.3"
+kotlinx-serialization = "1.11.0"
+ktor = "3.4.3"
 material3 = "1.10.0-alpha05"
 material3Adaptive = "1.3.0-alpha07"
 room = "3.0.0-alpha03"
 sqlite = "2.7.0-alpha03"
 ksp = "2.3.7"
-multiplatformSettings = "1.2.0"
-coil = "3.0.4"
-kermit = "2.0.4"
-navigationCompose = "2.9.0-alpha17"
-turbine = "1.1.0"
+multiplatformSettings = "1.3.0"
+coil = "3.4.0"
+kermit = "2.1.0"
+navigationCompose = "2.9.2"
+turbine = "1.2.1"
 markdown = "1.2.6"
 
 [libraries]
@@ -52,7 +51,6 @@ compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-previ
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
-kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
@@ -67,11 +65,13 @@ ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room" }
 sqlite = { module = "androidx.sqlite:sqlite", version.ref = "sqlite" }
+sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 sqlite-web = { module = "androidx.sqlite:sqlite-web", version.ref = "sqlite" }
 
 multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatformSettings" }
 multiplatform-settings-coroutines = { module = "com.russhwolf:multiplatform-settings-coroutines", version.ref = "multiplatformSettings" }
 
+coil-core = { module = "io.coil-kt.coil3:coil-core", version.ref = "coil" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 
@@ -84,6 +84,8 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 markdown-parser = { module = "io.github.huarangmeng:markdown-parser", version.ref = "markdown" }
 markdown-runtime = { module = "io.github.huarangmeng:markdown-runtime", version.ref = "markdown" }
 markdown-renderer = { module = "io.github.huarangmeng:markdown-renderer", version.ref = "markdown" }
+
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version = "0.5.0" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

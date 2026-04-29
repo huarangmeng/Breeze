@@ -7,11 +7,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.hrm.breeze.App
+import com.hrm.breeze.data.platform.initializeBreezeAndroidPlatform
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        initializeBreezeAndroidPlatform(this)
 
         setContent {
             App()
