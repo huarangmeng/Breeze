@@ -42,7 +42,7 @@
 | `:data`       | KMP lib           | Repository 实现、Ktor、Settings（后续 SQLDelight）                   |
 | `:core`       | KMP lib           | `BreezeResult`、`AppDispatchers`、`Log`                              |
 
-Feature 数量上来之后再拆 `:feature:chat` 等，现在先不拆。
+Feature 数量上来之后再拆 `:feature:chat` 等，现在先不拆；当前评估结论见 [ADR 0003](file:///Users/bytedance/AndroidStudioProjects/Breeze/docs/adr/0003-feature-module-split-timing.md)。
 
 所有 KMP 模块统一 source set：`commonMain / androidMain / iosMain / jvmMain / jsMain / wasmJsMain`，业务默认写 `commonMain`，遇到平台 API 再下沉（对应 `AGENTS.md §3.1`）。
 
@@ -136,6 +136,8 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 - `:data`（网络引擎、存储驱动按端提供）
 - `:composeApp/Platform`（保留现状）
 
+持久化目录策略见 [persistence-paths.md](file:///Users/bytedance/AndroidStudioProjects/Breeze/docs/platform/persistence-paths.md)，用于统一 `Room3` 与 `DataStore` 在各平台上的本地路径语义。
+
 禁止 UI 层出现 `if (Platform.isAndroid)`，差异转成 `WindowInfo` 或主题 token。
 
 ---
@@ -170,8 +172,9 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 ## 8. 导航
 
 - `androidx.navigation:navigation-compose` 的 CMP 版
-- `Destination` 基础类型在 `:core-ui/navigation/`（待建）
-- 路由表与 `NavHost` 在 `:composeApp/navigation/`（待建）
+- `Destination` 基础类型已落在 `:core-ui/navigation/`
+- 路由表与 `NavHost` 已落在 `:composeApp/navigation/`
+- 根布局由 `BreezeNavHost` 统一切换 `Compact/Medium` 单栏与 `Expanded` ListDetail
 - 宿主只创建根 `App()` 并传入系统级依赖
 
 ---
@@ -225,6 +228,5 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 ## 13. 当前差距
 
 - [ ] `:core-ui/components` / `:core-ui/navigation` 尚空
-- [ ] `:composeApp` 已接入 Koin + ViewModel，后续仍需继续拆到导航与 feature 层
-- [ ] `History / ApiConfig / ModelSettings` 仍未落地真实页面
+- [ ] `:composeApp` 仍同时承载根装配与 feature presentation，后续继续观察是否触发 ADR 0003 的拆分条件
 - [ ] `docs/platform/`、`docs/work-items/` 目录尚未建立

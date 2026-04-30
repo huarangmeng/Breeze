@@ -1,4 +1,4 @@
-package com.hrm.breeze
+package com.hrm.breeze.ui.screens.chat
 
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
 @Immutable
-data class BreezeChatUiState(
+data class ChatUiState(
     val conversations: List<Conversation> = emptyList(),
     val messages: List<Message> = emptyList(),
     val activeConversationId: String = createConversationId(),
@@ -42,7 +42,7 @@ private data class ChatStateDetail(
     val settings: BreezeSettingsSnapshot,
 )
 
-class BreezeChatViewModel(
+class ChatViewModel(
     private val chatRepository: ChatRepository,
     private val settings: BreezeSettings,
 ) : ViewModel() {
@@ -101,12 +101,12 @@ class BreezeChatViewModel(
             )
         }
 
-    val state: StateFlow<BreezeChatUiState> =
+    val state: StateFlow<ChatUiState> =
         combine(
             stateScaffold,
             stateDetail,
         ) { scaffold, detail ->
-            BreezeChatUiState(
+            ChatUiState(
                 conversations = scaffold.conversations,
                 messages = detail.messages,
                 activeConversationId = scaffold.activeConversationId,
@@ -118,7 +118,7 @@ class BreezeChatViewModel(
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
-            initialValue = BreezeChatUiState(activeConversationId = activeConversationId.value),
+            initialValue = ChatUiState(activeConversationId = activeConversationId.value),
         )
 
     init {

@@ -87,7 +87,7 @@
 
 ---
 
-## M4 导航 + Feature 拆分 ⬜
+## M4 导航 + Feature 拆分 ✅
 
 目标：接入 navigation-compose，把 `chat / history / api / modelsettings` 四个 feature 的骨架页落地；视情况拆 `:feature:*` 模块。
 
@@ -95,31 +95,31 @@
 | ----- | ----------------------------------------------------------------------------- | ---- |
 | M4-1  | `:core-ui/navigation/Destination.kt`：sealed 基础类型、类型安全参数约定          | ✅   |
 | M4-2  | `:composeApp/navigation/BreezeNavHost.kt`：集中路由表与导航装配                   | ✅   |
-| M4-3  | Chat 骨架页：`ChatScreen` + `ChatViewModel` + `ChatRoute`                       | ⬜   |
-| M4-4  | History 骨架页：同上                                                           | ⬜   |
-| M4-5  | ApiConfig 骨架页：同上                                                         | ⬜   |
-| M4-6  | ModelSettings 骨架页：同上                                                     | ⬜   |
-| M4-7  | 根 `BreezeApp()`：Expanded 下 ListDetail 骨架（列表 + 详情），Compact 下单栏      | ⬜   |
-| M4-8  | 当 feature 达到 3 个以上真实实现时，评估拆 `:feature:chat` 等模块（ADR 0003）   | ⬜   |
-| M4-9  | 补 `docs/design/navigation.md`：路由表、深链规则、返回栈策略                     | ⬜   |
+| M4-3  | Chat 骨架页：`ChatScreen` + `ChatViewModel` + `ChatRoute`                       | ✅   |
+| M4-4  | History 骨架页：同上                                                           | ✅   |
+| M4-5  | ApiConfig 骨架页：同上                                                         | ✅   |
+| M4-6  | ModelSettings 骨架页：同上                                                     | ✅   |
+| M4-7  | 根 `BreezeApp()`：Expanded 下 ListDetail 骨架（列表 + 详情），Compact 下单栏      | ✅   |
+| M4-8  | 当 feature 达到 3 个以上真实实现时，评估拆 `:feature:chat` 等模块（ADR 0003）   | ✅   |
+| M4-9  | 补 `docs/design/navigation.md`：路由表、深链规则、返回栈策略                     | ✅   |
 
 完成标准：四个 feature 页可通过导航相互跳转；每个页面都有独立 ViewModel；响应式在页面内生效。
 
 ---
 
-## M5 多 Provider ⬜
+## M5 多 Provider 🟡
 
 目标：在 `:data/llm/` 支持多家 LLM Provider，UI 与 domain 不感知 Provider 差异。
 
 | ID    | 任务                                                                          | 状态 |
 | ----- | ----------------------------------------------------------------------------- | ---- |
-| M5-1  | `:domain/model/LlmProviderId.kt`、`:domain/model/ModelProfile.kt`：Provider 抽象 | ⬜   |
-| M5-2  | `:data/llm/LlmProvider.kt`：Provider 统一接口（`complete` / `stream`）          | ⬜   |
+| M5-1  | `:domain/model/LlmProviderId.kt`、`:domain/model/ModelProfile.kt`：Provider 抽象 | ✅   |
+| M5-2  | `:data/llm/LlmProvider.kt`：Provider 统一接口（`complete` / `stream`）          | ✅   |
 | M5-3  | `OpenAIProvider`：chat/completions + 流式 SSE                                  | ⬜   |
 | M5-4  | `AnthropicProvider`：messages API                                              | ⬜   |
-| M5-5  | `LocalProvider`（Ollama 兼容）：本地 HTTP                                      | ⬜   |
-| M5-6  | `LlmProviderRegistry`：按 `ModelProfile.providerId` 路由到具体 Provider          | ⬜   |
-| M5-7  | ApiConfig 页：新增/编辑 Provider + API Key；Settings 持久化                      | ⬜   |
+| M5-5  | `LocalProvider`（Ollama 兼容）：本地 HTTP                                      | 🟡   |
+| M5-6  | `LlmProviderRegistry`：按 `ModelProfile.providerId` 路由到具体 Provider          | ✅   |
+| M5-7  | ApiConfig 页：新增/编辑 Provider + API Key；Settings 持久化                      | ✅   |
 | M5-8  | ModelSettings 页：参数（temperature / top_p / max_tokens）持久化                 | ⬜   |
 | M5-9  | 错误映射：把 Provider 特定错误统一映射成 `BreezeResult.Failure` + 面向用户文案   | ⬜   |
 

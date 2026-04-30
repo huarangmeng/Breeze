@@ -55,15 +55,15 @@
 - Android / iOS / JS / Wasm 默认 `true`
 - Desktop JVM 默认 `false`
 
-## 4. 当前示例页
+## 4. 当前根布局
 
-`composeApp/App.kt` 在本阶段承担验证页职责：
+当前由 `composeApp/navigation/BreezeNavHost.kt` 统一消费 `LocalWindowInfo`，根布局规则为：
 
-- `Compact` 展示单栏消息流 + 输入区
-- `Expanded` 展示列表 + 详情双栏骨架
-- 页头实时显示 `widthClass / heightClass / paneMode`
+- `Compact` / `Medium`：单栏导航壳，顶部横向 destination bar + 当前 feature 内容
+- `Expanded`：`ListDetail` 根骨架，左侧 feature 列表 + 右侧当前详情页
+- feature 页面内部继续各自消费 `LocalWindowInfo.current` 做页面级响应式
 
-这只是 `M2` 的验证页，不代表最终 feature 信息架构；正式页面在 `M4` 再拆入导航与各 feature。
+`M2` 的验证页职责已经在 `M4-7` 被正式根布局取代；页面内响应式则继续由各个 feature 自己负责。
 
 ## 5. 宿主接入
 

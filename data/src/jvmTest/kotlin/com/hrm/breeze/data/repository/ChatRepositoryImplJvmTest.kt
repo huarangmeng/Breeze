@@ -5,12 +5,16 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.hrm.breeze.core.coroutines.AppDispatchers
+import com.hrm.breeze.data.llm.LlmProviderRegistry
+import com.hrm.breeze.data.llm.LocalProvider
 import com.hrm.breeze.data.network.BREEZE_MOCK_ECHO_ENDPOINT
 import com.hrm.breeze.data.network.BreezeChatApi
 import com.hrm.breeze.data.network.KtorBreezeChatApi
 import com.hrm.breeze.data.network.createMockBreezeHttpClient
 import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.data.storage.BreezeDatabase
+import com.hrm.breeze.data.storage.createPlatformDatabaseBuilder
+import com.hrm.breeze.domain.model.LlmProviderId
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
@@ -38,6 +42,7 @@ class ChatRepositoryImplJvmTest {
         val settings = createSettings(tempDirectory.toString())
         val httpClient = createMockBreezeHttpClient()
         val chatApi: BreezeChatApi = KtorBreezeChatApi(httpClient) { BREEZE_MOCK_ECHO_ENDPOINT }
+        val providerRegistry = LlmProviderRegistry(listOf(LocalProvider(chatApi)))
         val clock =
             SequenceClock(
                 instants =
@@ -49,12 +54,13 @@ class ChatRepositoryImplJvmTest {
         val repository =
             ChatRepositoryImpl(
                 database = database,
-                chatApi = chatApi,
+                llmProviderRegistry = providerRegistry,
                 settings = settings,
                 dispatchers = dispatchers,
                 clock = clock,
             )
 
+        settings.updateCurrentProviderId(LlmProviderId.Local)
         settings.updateCurrentModelId("mock-model")
         advanceUntilIdle()
 
@@ -95,9 +101,9 @@ private fun createDatabase(
     dispatchers: AppDispatchers,
 ): BreezeDatabase =
     BreezeDatabase.build(
+        builder = createPlatformDatabaseBuilder("$tempDirectory/breeze-test.db"),
         driver = BundledSQLiteDriver(),
         dispatchers = dispatchers,
-        name = "$tempDirectory/breeze-test.db",
     )
 
 private fun createSettings(

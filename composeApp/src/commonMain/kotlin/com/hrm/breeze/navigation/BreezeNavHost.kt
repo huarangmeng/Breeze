@@ -1,6 +1,7 @@
 package com.hrm.breeze.navigation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,11 +18,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.hrm.breeze.ui.adaptive.LocalWindowInfo
+import com.hrm.breeze.ui.adaptive.PaneMode
 import com.hrm.breeze.ui.navigation.ApiConfig
 import com.hrm.breeze.ui.navigation.BreezeDestinations
 import com.hrm.breeze.ui.navigation.Chat
@@ -57,41 +62,70 @@ fun BreezeNavHost(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: startDestination.routePattern
+    val windowInfo = LocalWindowInfo.current
 
-    Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(BreezeTheme.spacing.md),
-    ) {
-        TopLevelNavigationBar(
-            currentRoute = currentRoute,
-            onDestinationClick = { destination ->
-                if (destination.routePattern == currentRoute) {
-                    return@TopLevelNavigationBar
+    fun navigateTo(destination: TopLevelDestination) {
+        if (destination.routePattern == currentRoute) {
+            return
+        }
+
+        navController.navigate(destination.routePattern) {
+            launchSingleTop = true
+            restoreState = true
+
+            val graphStartRoute = navController.graph.startDestinationRoute
+            if (graphStartRoute != null) {
+                popUpTo(graphStartRoute) {
+                    saveState = true
                 }
+            }
+        }
+    }
 
-                navController.navigate(destination.routePattern) {
-                    launchSingleTop = true
-                    restoreState = true
+    when (windowInfo.paneMode) {
+        PaneMode.Single -> {
+            Column(
+                modifier = modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(BreezeTheme.spacing.md),
+            ) {
+                TopLevelNavigationBar(
+                    currentRoute = currentRoute,
+                    onDestinationClick = ::navigateTo,
+                )
+                FeatureNavHost(
+                    navController = navController,
+                    startDestination = startDestination,
+                    chatContent = chatContent,
+                    historyContent = historyContent,
+                    apiConfigContent = apiConfigContent,
+                    modelSettingsContent = modelSettingsContent,
+                )
+            }
+        }
 
-                    val graphStartRoute = navController.graph.startDestinationRoute
-                    if (graphStartRoute != null) {
-                        popUpTo(graphStartRoute) {
-                            saveState = true
-                        }
-                    }
-                }
-            },
-        )
-
-        NavHost(
-            navController = navController,
-            startDestination = startDestination.routePattern,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            composable(Chat.routePattern) { chatContent() }
-            composable(History.routePattern) { historyContent() }
-            composable(ApiConfig.routePattern) { apiConfigContent() }
-            composable(ModelSettings.routePattern) { modelSettingsContent() }
+        PaneMode.ListDetail,
+        PaneMode.Triple,
+        -> {
+            Row(
+                modifier = modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(BreezeTheme.spacing.md),
+                verticalAlignment = Alignment.Top,
+            ) {
+                ExpandedNavigationPane(
+                    modifier = Modifier.weight(0.3f),
+                    currentRoute = currentRoute,
+                    onDestinationClick = ::navigateTo,
+                )
+                FeatureNavHost(
+                    navController = navController,
+                    startDestination = startDestination,
+                    chatContent = chatContent,
+                    historyContent = historyContent,
+                    apiConfigContent = apiConfigContent,
+                    modelSettingsContent = modelSettingsContent,
+                    modifier = Modifier.weight(0.7f),
+                )
+            }
         }
     }
 }
@@ -148,6 +182,104 @@ private fun TopLevelNavigationBar(
             }
         }
     }
+}
+
+@Composable
+private fun ExpandedNavigationPane(
+    currentRoute: String,
+    onDestinationClick: (TopLevelDestination) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val shapes = BreezeTheme.shapes
+    val spacing = BreezeTheme.spacing
+    val typography = BreezeTheme.typography
+    val extra = BreezeTheme.extendedColors
+
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = scheme.surface,
+        shape = shapes.large,
+        tonalElevation = spacing.hairline,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text(
+                    text = "Breeze",
+                    style = typography.titleLarge,
+                    color = scheme.onSurface,
+                )
+                Text(
+                    text = "Expanded 下使用 ListDetail 根骨架：左侧切换 feature，右侧承载详情页面。",
+                    style = typography.bodySmall,
+                    color = extra.textSecondary,
+                )
+            }
+
+            BreezeDestinations.topLevel.forEach { destination ->
+                val selected = currentRoute == destination.routePattern
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(shapes.medium)
+                        .background(if (selected) scheme.primaryContainer else scheme.surfaceVariant)
+                        .clickable { onDestinationClick(destination) },
+                    color = if (selected) scheme.primaryContainer else scheme.surfaceVariant,
+                    shape = shapes.medium,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(spacing.xxs),
+                    ) {
+                        Text(
+                            text = destination.title,
+                            style = typography.labelLarge,
+                            color = if (selected) scheme.onPrimaryContainer else scheme.onSurface,
+                        )
+                        Text(
+                            text = expandedDestinationDescription(destination),
+                            style = typography.bodySmall,
+                            color = if (selected) scheme.onPrimaryContainer else extra.textSecondary,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeatureNavHost(
+    navController: androidx.navigation.NavHostController,
+    startDestination: TopLevelDestination,
+    chatContent: @Composable () -> Unit,
+    historyContent: @Composable () -> Unit,
+    apiConfigContent: @Composable () -> Unit,
+    modelSettingsContent: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NavHost(
+        navController = navController,
+        startDestination = startDestination.routePattern,
+        modifier = modifier.fillMaxSize(),
+    ) {
+        composable(Chat.routePattern) { chatContent() }
+        composable(History.routePattern) { historyContent() }
+        composable(ApiConfig.routePattern) { apiConfigContent() }
+        composable(ModelSettings.routePattern) { modelSettingsContent() }
+    }
+}
+
+private fun expandedDestinationDescription(destination: TopLevelDestination): String = when (destination) {
+    Chat -> "消息流与输入区"
+    History -> "历史列表与详情摘要"
+    ApiConfig -> "Provider 与鉴权配置"
+    ModelSettings -> "模型选择与参数骨架"
 }
 
 @Composable

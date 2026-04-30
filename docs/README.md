@@ -34,8 +34,11 @@
 
 - [plan.md](plan.md)：项目总体计划（M0 → M6 里程碑与任务卡）
 - [architecture/overview.md](architecture/overview.md)：仓库架构基线（顶层模块、分层、响应式、演进路线）
+- [adr/0003-feature-module-split-timing.md](adr/0003-feature-module-split-timing.md)：feature 模块拆分时机评估（当前结论：先不拆）
 - [design/theme-tokens.md](design/theme-tokens.md)：主题 token 基线（颜色、圆角、间距、字型与扩展规则）
 - [design/responsive.md](design/responsive.md)：响应式基线（官方 adaptive、WindowInfo 包装层与布局切换规则）
+- [design/navigation.md](design/navigation.md)：导航结构、根布局、返回栈策略与深链边界
+- [platform/persistence-paths.md](platform/persistence-paths.md)：跨平台持久化路径策略（Room3 / DataStore 的目录约束与平台映射）
 
 ## 根目录保留项
 
