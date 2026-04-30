@@ -60,28 +60,23 @@ kotlin {
             implementation(libs.sqlite)
         }
         androidMain.dependencies {
-            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.sqlite.bundled)
         }
         iosMain.dependencies {
-            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.darwin)
             implementation(libs.sqlite.bundled)
         }
         jvmMain.dependencies {
-            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.java)
             implementation(libs.sqlite.bundled)
         }
         jsMain.dependencies {
-            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.js)
             // Web 端额外需要 WebWorkerSQLiteDriver，具体 Worker 由 composeApp 的 web 入口提供。
             implementation(libs.sqlite.web)
         }
         wasmJsMain.dependencies {
-            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.js)
             implementation(libs.sqlite.web)
             implementation(libs.kotlinx.browser)

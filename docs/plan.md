@@ -71,7 +71,7 @@
 | M3-3  | `:data/storage`：Room3 数据库骨架 `BreezeDatabase`（`Conversation` + `Message` 两张表） | ✅   |
 | M3-4  | 各端 `SQLiteDriver` 工厂：Android/JVM 用 bundled，iOS 用 bundled，Web 用 `WebWorkerSQLiteDriver` | ✅   |
 | M3-5  | Web Worker 资源：`composeApp/webMain/resources` 里放 sqlite web worker js       | ✅   |
-| M3-6  | `:data/settings/BreezeSettings`：封装 `multiplatform-settings` 提供类型安全 KV   | ✅   |
+| M3-6  | `:data/settings/BreezeSettings`：封装 AndroidX DataStore 提供类型安全设置存储     | ✅   |
 | M3-7  | `:data/image/BreezeImageLoader`：Coil3 `ImageLoader` 工厂（使用同一个 Ktor Client） | ✅   |
 | M3-8  | `ChatRepositoryImpl`：走 Room3 + Ktor 的真实实现替换 `InMemoryChatRepository`   | ✅   |
 | M3-9  | 网络与数据库方案说明已收敛到 `docs/architecture/overview.md`                     | ✅   |
@@ -93,8 +93,8 @@
 
 | ID    | 任务                                                                          | 状态 |
 | ----- | ----------------------------------------------------------------------------- | ---- |
-| M4-1  | `:core-ui/navigation/Destination.kt`：sealed 基础类型、类型安全参数约定          | ⬜   |
-| M4-2  | `:composeApp/navigation/BreezeNavHost.kt`：集中路由表与导航装配                   | ⬜   |
+| M4-1  | `:core-ui/navigation/Destination.kt`：sealed 基础类型、类型安全参数约定          | ✅   |
+| M4-2  | `:composeApp/navigation/BreezeNavHost.kt`：集中路由表与导航装配                   | ✅   |
 | M4-3  | Chat 骨架页：`ChatScreen` + `ChatViewModel` + `ChatRoute`                       | ⬜   |
 | M4-4  | History 骨架页：同上                                                           | ⬜   |
 | M4-5  | ApiConfig 骨架页：同上                                                         | ⬜   |

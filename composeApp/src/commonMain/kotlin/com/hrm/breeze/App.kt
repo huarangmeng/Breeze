@@ -26,36 +26,56 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import com.hrm.breeze.data.BreezeDataContainer
 import com.hrm.breeze.data.settings.BreezeSettingsSnapshot
+import com.hrm.breeze.di.breezeAppModule
 import com.hrm.breeze.domain.model.Conversation
 import com.hrm.breeze.domain.model.Message
+import com.hrm.breeze.navigation.BreezeNavHost
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.adaptive.PaneMode
 import com.hrm.breeze.ui.adaptive.ProvideWindowInfo
 import com.hrm.breeze.ui.theme.BreezeAppTheme
 import com.hrm.breeze.ui.theme.BreezeTheme
+import io.ktor.client.HttpClient
 import kotlin.time.Clock
+import org.koin.compose.KoinApplication
+import org.koin.compose.koinInject
+import org.koin.dsl.koinConfiguration
 
 @Composable
 fun App(
     previewMode: Boolean = false,
 ) {
-    BreezeAppTheme {
-        ProvideWindowInfo {
-            if (previewMode) {
-                BreezeChatShell(
-                    state = previewChatState(),
-                    previewMode = true,
+    if (previewMode) {
+        BreezeAppTheme {
+            ProvideWindowInfo {
+                BreezeNavHost(
+                    chatContent = {
+                        BreezeChatShell(
+                            state = previewChatState(),
+                            previewMode = true,
+                        )
+                    },
                 )
-            } else {
+            }
+        }
+        return
+    }
+
+    KoinApplication(
+        configuration =
+            koinConfiguration {
+                modules(breezeAppModule)
+            }
+    ) {
+        BreezeAppTheme {
+            ProvideWindowInfo {
                 BreezeRuntimeApp()
             }
         }
@@ -70,17 +90,22 @@ private fun AppPreview() {
 
 @Composable
 private fun BreezeRuntimeApp() {
-    val dataContainer = remember { BreezeDataContainer.create(useMockEchoService = true) }
+    val httpClient = koinInject<HttpClient>()
 
-    DisposableEffect(dataContainer) {
+    DisposableEffect(httpClient) {
         onDispose {
-            dataContainer.httpClient.close()
+            httpClient.close()
         }
     }
 
-    BreezeChatShell(
-        state = rememberBreezeChatState(dataContainer),
-        previewMode = false,
+    val state = rememberBreezeChatState()
+    BreezeNavHost(
+        chatContent = {
+            BreezeChatShell(
+                state = state,
+                previewMode = false,
+            )
+        },
     )
 }
 

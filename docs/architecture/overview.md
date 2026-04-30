@@ -36,7 +36,7 @@
 | ------------- | ----------------- | -------------------------------------------------------------------- |
 | `:androidApp` | Android App       | Activity 包装、启动入口                                              |
 | `:iosApp`     | Xcode 工程        | `UIViewController` 包装、启动入口                                    |
-| `:composeApp` | KMP + CMP 壳      | 根 `App()`、NavHost、手动装配容器                                    |
+| `:composeApp` | KMP + CMP 壳      | 根 `App()`、NavHost、Koin 模块、ViewModel/Route 装配                 |
 | `:core-ui`    | KMP + CMP lib     | `BreezeTheme`、`adaptive`、通用组件、Compose 生态（navigation/coil/markdown） |
 | `:domain`     | KMP lib（纯 Kotlin） | 模型、用例、Repository **接口**；禁止 Compose / Ktor / SQLDelight |
 | `:data`       | KMP lib           | Repository 实现、Ktor、Settings（后续 SQLDelight）                   |
@@ -83,7 +83,8 @@ Feature 数量上来之后再拆 `:feature:chat` 等，现在先不拆。
 └── breeze/
     ├── App.kt       根 Composable（迁出 theme 后使用 :core-ui）
     ├── Platform.kt  现有 expect
-    └── (navigation/, di/ 待建)
+    ├── di/          Koin 模块与运行时装配
+    └── navigation/  路由与 NavHost
 ```
 
 ### 各层约束
@@ -148,6 +149,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 | UI         | Compose Multiplatform                                | `:core-ui` / 宿主 |
 | 响应式     | Material3 Adaptive + `WindowSizeClass`              | `:core-ui/adaptive` |
 | 导航       | `androidx.navigation:navigation-compose`（CMP 版）   | `:core-ui`        |
+| 依赖注入   | Koin（`koin-core` + `koin-compose` + `koin-compose-viewmodel`） | `:composeApp` |
 | ViewModel  | `androidx.lifecycle:lifecycle-viewmodel*`            | `:composeApp`     |
 | 协程       | `kotlinx-coroutines`                                 | `:core` / `:data` |
 | 时间       | `kotlinx-datetime`                                   | `:core` / `:domain` |
@@ -155,7 +157,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 | 网络       | Ktor 3（core + content-negotiation + logging + sse） | `:data`           |
 | 网络引擎   | OkHttp（Android）/ Darwin（iOS）/ Java（JVM）/ JS    | `:data` 各 actual |
 | 数据库     | Room3 + `androidx.sqlite`                            | `:data/storage/`  |
-| KV 设置    | `multiplatform-settings` + coroutines                | `:data/settings/` |
+| KV 设置    | AndroidX DataStore Preferences                       | `:data/settings/` |
 | 图片加载   | Coil 3（`coil-compose` + `coil-network-ktor3`）      | `:core-ui` / `:data` |
 | Markdown   | `io.github.huarangmeng:markdown-parser/runtime/renderer` `1.2.6` | `:core-ui` |
 | 日志       | Kermit                                               | `:core`           |
@@ -223,6 +225,6 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 ## 13. 当前差距
 
 - [ ] `:core-ui/components` / `:core-ui/navigation` 尚空
-- [ ] `:composeApp` 当前仍是单文件装配，后续需在 M4 拆到导航与 feature 层
+- [ ] `:composeApp` 已接入 Koin + ViewModel，后续仍需继续拆到导航与 feature 层
 - [ ] `History / ApiConfig / ModelSettings` 仍未落地真实页面
 - [ ] `docs/platform/`、`docs/work-items/` 目录尚未建立
