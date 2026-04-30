@@ -60,23 +60,30 @@
 
 ---
 
-## M3 基础设施接入 ⬜
+## M3 基础设施接入 ✅
 
 目标：`:data` 从占位升级为真实实现；网络 + 数据库 + 设置 + 图片打通。
 
 | ID    | 任务                                                                          | 状态 |
 | ----- | ----------------------------------------------------------------------------- | ---- |
-| M3-1  | `:data/network/BreezeHttpClient.kt`：Ktor Client 工厂（content-neg + logging + sse）；`BreezeJson` 单例 | ⬜   |
-| M3-2  | 各端 Ktor 引擎 actual 工厂（OkHttp / Darwin / Java / JS）；wasmJs 方案定稿（ADR 0002） | ⬜   |
-| M3-3  | `:data/storage`：Room3 数据库骨架 `BreezeDatabase`（`Conversation` + `Message` 两张表） | ⬜   |
-| M3-4  | 各端 `SQLiteDriver` 工厂：Android/JVM 用 bundled，iOS 用 bundled，Web 用 `WebWorkerSQLiteDriver` | ⬜   |
-| M3-5  | Web Worker 资源：`composeApp/webMain/resources` 里放 sqlite web worker js       | ⬜   |
-| M3-6  | `:data/settings/BreezeSettings`：封装 `multiplatform-settings` 提供类型安全 KV   | ⬜   |
-| M3-7  | `:data/image/BreezeImageLoader`：Coil3 `ImageLoader` 工厂（使用同一个 Ktor Client） | ⬜   |
-| M3-8  | `ChatRepositoryImpl`：走 Room3 + Ktor 的真实实现替换 `InMemoryChatRepository`   | ⬜   |
-| M3-9  | ADR `0001-network.md`、`0002-database.md`：记录 Ktor/Room3 选型与 Web 方案       | ⬜   |
+| M3-1  | `:data/network/BreezeHttpClient.kt`：Ktor Client 工厂（content-neg + logging + sse）；`BreezeJson` 单例 | ✅   |
+| M3-2  | 各端 Ktor 引擎 actual 工厂（OkHttp / Darwin / Java / JS）；wasmJs 方案定稿 | ✅   |
+| M3-3  | `:data/storage`：Room3 数据库骨架 `BreezeDatabase`（`Conversation` + `Message` 两张表） | ✅   |
+| M3-4  | 各端 `SQLiteDriver` 工厂：Android/JVM 用 bundled，iOS 用 bundled，Web 用 `WebWorkerSQLiteDriver` | ✅   |
+| M3-5  | Web Worker 资源：`composeApp/webMain/resources` 里放 sqlite web worker js       | ✅   |
+| M3-6  | `:data/settings/BreezeSettings`：封装 `multiplatform-settings` 提供类型安全 KV   | ✅   |
+| M3-7  | `:data/image/BreezeImageLoader`：Coil3 `ImageLoader` 工厂（使用同一个 Ktor Client） | ✅   |
+| M3-8  | `ChatRepositoryImpl`：走 Room3 + Ktor 的真实实现替换 `InMemoryChatRepository`   | ✅   |
+| M3-9  | 网络与数据库方案说明已收敛到 `docs/architecture/overview.md`                     | ✅   |
 
-完成标准：Desktop 和 Android 运行后，能把一条消息持久化到 Room3、通过 Ktor 发到回显 Mock 服务、再读取回来。
+完成情况：
+
+- `BreezeDataContainer` 已接入 `composeApp` 根入口，默认使用仓库内 `MockEngine` 回显链路。
+- `App.kt` 已从静态 demo 切为真实会话列表 + 消息区，消息发送会写入 Room3，并通过 `KtorBreezeChatApi` 回写 assistant 消息。
+- `:data` 已补 `ChatRepositoryImplJvmTest`，覆盖“持久化 -> 请求 -> 回写消息”主链路。
+- 已验证 `:data:jvmTest`、`:composeApp:compileKotlinJvm`、`:androidApp:assembleDebug` 通过。
+
+完成标准：Desktop 和 Android 运行后，能把一条消息持久化到 Room3、通过 Ktor 发到回显链路、再读取回来；同时 `:data` 具备最小自动化验证。以上能力现已接通。
 
 ---
 

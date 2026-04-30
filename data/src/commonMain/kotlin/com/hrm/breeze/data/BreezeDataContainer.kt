@@ -4,9 +4,11 @@ import coil3.ImageLoader
 import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.core.coroutines.defaultAppDispatchers
 import com.hrm.breeze.data.image.createBreezeImageLoader
+import com.hrm.breeze.data.network.BREEZE_MOCK_ECHO_ENDPOINT
 import com.hrm.breeze.data.network.BreezeChatApi
 import com.hrm.breeze.data.network.KtorBreezeChatApi
 import com.hrm.breeze.data.network.createBreezeHttpClient
+import com.hrm.breeze.data.network.createMockBreezeHttpClient
 import com.hrm.breeze.data.repository.ChatRepositoryImpl
 import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.data.settings.createBreezeSettings
@@ -25,16 +27,22 @@ class BreezeDataContainer(
     companion object {
         fun create(
             dispatchers: AppDispatchers = defaultAppDispatchers(),
+            useMockEchoService: Boolean = true,
         ): BreezeDataContainer {
             val settings = createBreezeSettings()
-            val httpClient = createBreezeHttpClient()
+            val httpClient =
+                if (useMockEchoService) {
+                    createMockBreezeHttpClient()
+                } else {
+                    createBreezeHttpClient()
+                }
             val database = BreezeDatabase.build(
                 driver = createPlatformSQLiteDriver(),
                 dispatchers = dispatchers,
             )
             val chatApi: BreezeChatApi = KtorBreezeChatApi(
                 httpClient = httpClient,
-                endpointProvider = { settings.echoEndpoint },
+                endpointProvider = settings::getEchoEndpoint,
             )
             val repository: ChatRepository = ChatRepositoryImpl(
                 database = database,

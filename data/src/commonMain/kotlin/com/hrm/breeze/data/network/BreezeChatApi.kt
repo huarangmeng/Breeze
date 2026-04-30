@@ -17,7 +17,7 @@ interface BreezeChatApi {
 
 class KtorBreezeChatApi(
     private val httpClient: HttpClient,
-    private val endpointProvider: () -> String,
+    private val endpointProvider: suspend () -> String,
 ) : BreezeChatApi {
     override suspend fun echoMessage(
         conversationId: String,

@@ -73,10 +73,11 @@ Feature 数量上来之后再拆 `:feature:chat` 等，现在先不拆。
 :data
 └── data/
     ├── llm/         (待建：OpenAIProvider 等)
-    ├── network/     (待建：Ktor 工厂)
-    ├── storage/     (待建：SQLDelight)
-    ├── settings/    (待建：multiplatform-settings)
-    └── repository/  InMemoryChatRepository (占位)
+    ├── image/       BreezeImageLoader expect/actual
+    ├── network/     BreezeHttpClient, BreezeChatApi, BreezeJson
+    ├── settings/    BreezeSettings
+    ├── storage/     Room3 + SQLiteDriver 工厂
+    └── repository/  ChatRepositoryImpl / InMemoryChatRepository
 
 :composeApp
 └── breeze/
@@ -117,8 +118,8 @@ Feature 数量上来之后再拆 `:feature:chat` 等，现在先不拆。
 ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatRepository(接口)
                                                                     ▲
                                                        ChatRepositoryImpl (:data)
-                                                         ├─ Ktor / LlmProvider
-                                                         └─ SQLDelight / Settings
+                                                         ├─ Ktor / BreezeChatApi
+                                                         └─ Room3 / Settings
 ```
 
 约束：UI 只订阅 state；ViewModel 只调 UseCase；Repository 接口在 `:domain`、实现在 `:data`。
@@ -153,14 +154,14 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 | 序列化     | `kotlinx-serialization-json`                         | `:data`           |
 | 网络       | Ktor 3（core + content-negotiation + logging + sse） | `:data`           |
 | 网络引擎   | OkHttp（Android）/ Darwin（iOS）/ Java（JVM）/ JS    | `:data` 各 actual |
-| 数据库     | SQLDelight（待 M3 接入）                             | `:data/storage/`  |
+| 数据库     | Room3 + `androidx.sqlite`                            | `:data/storage/`  |
 | KV 设置    | `multiplatform-settings` + coroutines                | `:data/settings/` |
 | 图片加载   | Coil 3（`coil-compose` + `coil-network-ktor3`）      | `:core-ui` / `:data` |
 | Markdown   | `io.github.huarangmeng:markdown-parser/runtime/renderer` `1.2.6` | `:core-ui` |
 | 日志       | Kermit                                               | `:core`           |
 | 测试       | `kotlin-test` + `kotlinx-coroutines-test` + Turbine  | 各模块 `commonTest` |
 
-模块间依赖约定：`:domain` 禁止引入 Compose / Ktor / SQLDelight / Serialization；`:core` 禁止依赖业务模块。
+模块间依赖约定：`:domain` 禁止引入 Compose / Ktor / Room3 / Serialization；`:core` 禁止依赖业务模块。
 
 ---
 
@@ -176,7 +177,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 ## 9. 测试
 
 - `commonTest`：`:domain` 用例、ViewModel 行为（`TestDispatcher` + Turbine）
-- `:data`：Ktor `MockEngine`；SQLDelight 内存 driver
+- `:data`：Ktor `MockEngine` + `ChatRepositoryImpl` 主链路验证（JVM 优先）
 - UI 测试等组件稳定后再加
 
 ---
@@ -185,7 +186,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 
 | 目标     | 命令                                                  |
 | -------- | ----------------------------------------------------- |
-| Android  | `./gradlew :composeApp:assembleDebug`                 |
+| Android  | `./gradlew :androidApp:assembleDebug`                 |
 | Desktop  | `./gradlew :composeApp:run`                           |
 | Web Wasm | `./gradlew :composeApp:wasmJsBrowserDevelopmentRun`   |
 | Web JS   | `./gradlew :composeApp:jsBrowserDevelopmentRun`       |
@@ -198,7 +199,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 1. **M0 模块拆分** ✅（本次完成）：`:core` / `:core-ui` / `:domain` / `:data` 落地；`theme/` 迁入 `:core-ui`；`WindowInfo` 骨架就位；`libs.versions.toml` 补齐
 2. **M1 主题基线** ✅（本次完成）：补 `BreezeShapes` / `BreezeSpacing` / `BreezeTypography`，清掉 `App.kt` 残留硬编码，并补 `docs/design/theme-tokens.md`
 3. **M2 响应式接通** ✅（本次完成）：引入官方 `Material3 Adaptive`，共享层统一映射 `WindowInfo`；骨架页切换 Compact / Expanded；补 `docs/design/responsive.md`
-4. **M3 基础设施**：Ktor / SQLDelight / Settings / Coil3 真正接入 `:data`
+4. **M3 基础设施** ✅：Ktor / Room3 / Settings / Coil3 已接入 `:data`，并通过 `App` + `MockEngine` + Room3 完成最小闭环
 5. **M4 导航 + feature 拆分**：navigation-compose 接入；按需拆 `:feature:chat` 等
 6. **M5 多 Provider**：`:data/llm/` 引入 OpenAI / 本地等
 7. **M6 生产化**：错误边界、网络重试、日志、遥测
@@ -211,7 +212,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 
 放 `docs/adr/NNNN-<slug>.md`，采用 Context → Decision → Consequences。触发点：
 
-- 导航方案变化（首轮 navigation-compose 接入时写 `0001-navigation.md`）
+- 导航方案变化（首轮 navigation-compose 接入时写新的 ADR）
 - 网络 / 持久化库变化
 - 新增跨端 `expect` 族
 - 断点 / 窗口类定义变化
@@ -222,6 +223,6 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 ## 13. 当前差距
 
 - [ ] `:core-ui/components` / `:core-ui/navigation` 尚空
-- [ ] `:composeApp` 的 `App.kt` 仍是 demo 页，未拆到 feature
-- [ ] `:data` 只有占位 `InMemoryChatRepository`，Ktor / Room3 / Settings 尚未接入
-- [ ] `docs/adr/`、`docs/platform/`、`docs/work-items/` 目录尚未建立
+- [ ] `:composeApp` 当前仍是单文件装配，后续需在 M4 拆到导航与 feature 层
+- [ ] `History / ApiConfig / ModelSettings` 仍未落地真实页面
+- [ ] `docs/platform/`、`docs/work-items/` 目录尚未建立

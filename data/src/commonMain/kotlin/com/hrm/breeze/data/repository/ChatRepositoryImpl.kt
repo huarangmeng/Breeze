@@ -37,7 +37,7 @@ class ChatRepositoryImpl(
     override fun sendMessage(conversationId: String, text: String): Flow<Message> = flow {
         val now = clock.now()
         val title = text.trim().ifBlank { "新对话" }.take(32)
-        val modelId = settings.currentModelId
+        val modelId = settings.getCurrentModelId()
 
         database.conversationDao().upsertConversation(
             ConversationEntity(

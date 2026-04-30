@@ -2,12 +2,13 @@ package com.hrm.breeze
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,103 +16,140 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import com.hrm.breeze.data.BreezeDataContainer
+import com.hrm.breeze.data.settings.BreezeSettingsSnapshot
+import com.hrm.breeze.domain.model.Conversation
+import com.hrm.breeze.domain.model.Message
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.adaptive.PaneMode
 import com.hrm.breeze.ui.adaptive.ProvideWindowInfo
-import com.hrm.breeze.ui.adaptive.WidthClass
 import com.hrm.breeze.ui.theme.BreezeAppTheme
 import com.hrm.breeze.ui.theme.BreezeTheme
+import kotlin.time.Clock
 
 @Composable
-@Preview
-fun App() {
+fun App(
+    previewMode: Boolean = false,
+) {
     BreezeAppTheme {
         ProvideWindowInfo {
-            BreezeDemoScreen()
+            if (previewMode) {
+                BreezeChatShell(
+                    state = previewChatState(),
+                    previewMode = true,
+                )
+            } else {
+                BreezeRuntimeApp()
+            }
         }
     }
 }
 
+@Preview
 @Composable
-private fun BreezeDemoScreen() {
+private fun AppPreview() {
+    App(previewMode = true)
+}
+
+@Composable
+private fun BreezeRuntimeApp() {
+    val dataContainer = remember { BreezeDataContainer.create(useMockEchoService = true) }
+
+    DisposableEffect(dataContainer) {
+        onDispose {
+            dataContainer.httpClient.close()
+        }
+    }
+
+    BreezeChatShell(
+        state = rememberBreezeChatState(dataContainer),
+        previewMode = false,
+    )
+}
+
+@Composable
+private fun BreezeChatShell(
+    state: BreezeChatState,
+    previewMode: Boolean,
+) {
     val windowInfo = LocalWindowInfo.current
     val scheme = MaterialTheme.colorScheme
-    val extra = BreezeTheme.extendedColors
-    val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
+    val extra = BreezeTheme.extendedColors
 
-    BoxWithConstraints(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(scheme.background)
             .safeContentPadding()
             .padding(horizontal = spacing.lg, vertical = spacing.md),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        val layoutModifier = when (windowInfo.widthClass) {
-            WidthClass.Compact -> Modifier.fillMaxWidth()
-            WidthClass.Medium -> Modifier.fillMaxWidth()
-            WidthClass.Expanded -> Modifier.fillMaxWidth(0.9f)
+        BreezeScreenHeader(
+            state = state,
+            previewMode = previewMode,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            StatusChip(windowInfo.widthClass.name, extra.info, extra.onInfo)
+            StatusChip(windowInfo.paneMode.name, extra.success, extra.onSuccess)
+            StatusChip(if (previewMode) "Preview" else "Mock Echo", extra.warning, extra.onWarning)
         }
 
-        Column(
-            modifier = layoutModifier,
-            verticalArrangement = Arrangement.spacedBy(spacing.md),
-        ) {
-            BreezeScreenHeader()
-
-            when (windowInfo.paneMode) {
-                PaneMode.Single -> {
-                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                        StatusChip("Compact", extra.info, extra.onInfo)
-                        StatusChip("Touch", extra.success, extra.onSuccess)
-                        StatusChip("Single Pane", extra.warning, extra.onWarning)
-                    }
-                    ChatPreviewCard()
-                    ComposerCard()
+        when (windowInfo.paneMode) {
+            PaneMode.Single -> {
+                PaneCard(
+                    title = "Conversations",
+                    subtitle = "当前会话直接来自 Room3，发送后会实时更新排序。",
+                ) {
+                    ConversationPaneContent(state)
                 }
+                PaneCard(
+                    title = "Chat Detail",
+                    subtitle = "消息发送链路使用真实 Repository，默认走仓库内 mock echo。",
+                ) {
+                    ChatPaneContent(state)
+                }
+            }
 
-                PaneMode.ListDetail,
-                PaneMode.Triple,
-                -> {
-                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                        StatusChip(windowInfo.widthClass.name, extra.info, extra.onInfo)
-                        StatusChip("Pointer", extra.success, extra.onSuccess)
-                        StatusChip("ListDetail", extra.warning, extra.onWarning)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-                        verticalAlignment = Alignment.Top,
+            PaneMode.ListDetail,
+            PaneMode.Triple,
+            -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    AdaptivePane(
+                        weight = 0.38f,
+                        title = "Conversations",
+                        subtitle = "左侧展示真实会话列表，支持新建对话。",
                     ) {
-                        AdaptivePane(
-                            weight = 0.42f,
-                            title = "Conversations",
-                            subtitle = "Expanded 下展示列表面板，后续接 History / Chat 列表。",
-                        ) {
-                            ConversationListPreview()
-                        }
-                        AdaptivePane(
-                            weight = 0.58f,
-                            title = "Chat Detail",
-                            subtitle = "详情面板保持消息预览和输入区，验证双栏布局切换。",
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                                ChatPreviewCard()
-                                ComposerCard()
-                            }
-                        }
+                        ConversationPaneContent(state)
+                    }
+                    AdaptivePane(
+                        weight = 0.62f,
+                        title = "Chat Detail",
+                        subtitle = "右侧展示真实消息与输入区，验证 M3 闭环已接通。",
+                    ) {
+                        ChatPaneContent(state)
                     }
                 }
             }
@@ -120,7 +158,10 @@ private fun BreezeDemoScreen() {
 }
 
 @Composable
-private fun BreezeScreenHeader() {
+private fun BreezeScreenHeader(
+    state: BreezeChatState,
+    previewMode: Boolean,
+) {
     val windowInfo = LocalWindowInfo.current
     val scheme = MaterialTheme.colorScheme
     val extra = BreezeTheme.extendedColors
@@ -134,27 +175,47 @@ private fun BreezeScreenHeader() {
             color = scheme.onBackground,
         )
         Text(
-            text = "Responsive preview: ${windowInfo.widthClass} / ${windowInfo.heightClass} / ${windowInfo.paneMode}",
+            text = "M3 ${if (previewMode) "preview" else "runtime"}: ${windowInfo.widthClass} / ${windowInfo.heightClass} / ${windowInfo.paneMode}",
             style = typography.bodyMedium,
+            color = extra.textSecondary,
+        )
+        Text(
+            text = "Endpoint: ${state.settings.echoEndpoint}  |  Model: ${state.settings.currentModelId}",
+            style = typography.bodySmall,
             color = extra.textSecondary,
         )
     }
 }
 
 @Composable
-private fun AdaptivePane(
+private fun RowScope.AdaptivePane(
     weight: Float,
     title: String,
     subtitle: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    PaneCard(
+        modifier = Modifier.weight(weight),
+        title = title,
+        subtitle = subtitle,
+        content = content,
+    )
+}
+
+@Composable
+private fun PaneCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    subtitle: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
-    val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
+    val shapes = BreezeTheme.shapes
     val typography = BreezeTheme.typography
 
     Surface(
-        modifier = Modifier.fillMaxWidth(weight),
+        modifier = modifier.fillMaxWidth(),
         color = scheme.surface,
         shape = shapes.large,
         tonalElevation = spacing.hairline,
@@ -162,54 +223,77 @@ private fun AdaptivePane(
         Column(
             modifier = Modifier.padding(spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
-            content = {
-                Text(
-                    text = title,
-                    style = typography.titleMedium,
-                    color = scheme.onSurface,
-                )
-                Text(
-                    text = subtitle,
-                    style = typography.bodySmall,
-                    color = BreezeTheme.extendedColors.textSecondary,
-                )
-                content()
-            },
-        )
+        ) {
+            Text(
+                text = title,
+                style = typography.titleMedium,
+                color = scheme.onSurface,
+            )
+            Text(
+                text = subtitle,
+                style = typography.bodySmall,
+                color = BreezeTheme.extendedColors.textSecondary,
+            )
+            content()
+        }
     }
 }
 
 @Composable
-private fun ConversationListPreview() {
-    val extra = BreezeTheme.extendedColors
+private fun ConversationPaneContent(
+    state: BreezeChatState,
+) {
     val spacing = BreezeTheme.spacing
+    val typography = BreezeTheme.typography
 
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        ConversationListItem(
-            title = "Breeze Theme Review",
-            summary = "Theme token baseline is ready, next step is responsive shell.",
-            accent = extra.info,
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Button(onClick = state.onNewConversation) {
+            Text("新对话")
+        }
+        Text(
+            text = "共 ${state.conversations.size} 个会话",
+            style = typography.bodySmall,
+            color = BreezeTheme.extendedColors.textSecondary,
         )
-        ConversationListItem(
-            title = "WindowInfo Integration",
-            summary = "Desktop and web should reflect real width classes.",
-            accent = extra.success,
+    }
+
+    if (state.conversations.isEmpty()) {
+        Text(
+            text = "还没有历史会话。发送第一条消息后，Room3 会自动创建会话与消息记录。",
+            style = typography.bodyMedium,
+            color = BreezeTheme.extendedColors.textSecondary,
         )
-        ConversationListItem(
-            title = "Navigation Planning",
-            summary = "List / detail shell is reserved for M4.",
-            accent = extra.warning,
-        )
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        state.conversations.forEach { conversation ->
+            ConversationListItem(
+                conversation = conversation,
+                selected = conversation.id == state.activeConversationId,
+                onClick = { state.onConversationSelected(conversation.id) },
+            )
+        }
     }
 }
 
 @Composable
 private fun ConversationListItem(
-    title: String,
-    summary: String,
-    accent: androidx.compose.ui.graphics.Color,
+    conversation: Conversation,
+    selected: Boolean,
+    onClick: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val extra = BreezeTheme.extendedColors
     val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
     val typography = BreezeTheme.typography
@@ -218,7 +302,8 @@ private fun ConversationListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shapes.medium)
-            .background(scheme.surfaceVariant)
+            .background(if (selected) scheme.primaryContainer else scheme.surfaceVariant)
+            .clickable(onClick = onClick)
             .padding(spacing.sm),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         verticalAlignment = Alignment.Top,
@@ -227,76 +312,80 @@ private fun ConversationListItem(
             modifier = Modifier
                 .size(spacing.xs)
                 .clip(shapes.pill)
-                .background(accent),
+                .background(if (selected) scheme.primary else extra.info),
         )
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(spacing.xxs),
         ) {
             Text(
-                text = title,
+                text = conversation.title,
                 style = typography.labelLarge,
                 color = scheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = summary,
+                text = "Model: ${conversation.modelId}",
                 style = typography.bodySmall,
-                color = BreezeTheme.extendedColors.textSecondary,
+                color = extra.textSecondary,
             )
         }
     }
 }
 
 @Composable
-private fun ChatPreviewCard() {
-    val scheme = MaterialTheme.colorScheme
-    val extra = BreezeTheme.extendedColors
-    val shapes = BreezeTheme.shapes
+private fun ChatPaneContent(
+    state: BreezeChatState,
+) {
     val spacing = BreezeTheme.spacing
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = scheme.surface,
-        contentColor = scheme.onSurface,
-        shape = shapes.large,
-        tonalElevation = spacing.micro,
-    ) {
-        Column(
-            modifier = Modifier.padding(spacing.md),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            MessageBubble(
-                text = "帮我把骨架页切到真正的响应式窗口类。",
-                background = extra.chatUserBubble,
-                contentColor = extra.chatUserText,
-                alignEnd = true,
-            )
-            MessageBubble(
-                text = "现在 `LocalWindowInfo` 已经接通，Compact 是单栏，Expanded 是列表 + 详情双栏。",
-                background = extra.chatAiBubble,
-                contentColor = extra.chatAiText,
-                alignEnd = false,
-            )
-            CodeSnippetCard(
-                code = "LocalWindowInfo.current.widthClass\nProvideWindowInfo { App() }",
-            )
-        }
-    }
-}
-
-@Composable
-private fun ComposerCard() {
-    val scheme = MaterialTheme.colorScheme
-    val extra = BreezeTheme.extendedColors
     val shapes = BreezeTheme.shapes
-    val spacing = BreezeTheme.spacing
+    val extra = BreezeTheme.extendedColors
     val typography = BreezeTheme.typography
 
+    if (state.errorMessage != null) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shapes.medium)
+                .background(MaterialTheme.colorScheme.errorContainer)
+                .padding(spacing.sm),
+        ) {
+            Text(
+                text = state.errorMessage,
+                style = typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+        }
+    }
+
+    ChatMetaCard(state)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(spacing.md)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        if (state.messages.isEmpty()) {
+            Text(
+                text = "发送消息后，这里会显示写入 Room3 的用户消息和 mock echo 返回的助手消息。",
+                style = typography.bodyMedium,
+                color = extra.textSecondary,
+            )
+        } else {
+            state.messages.forEach { message ->
+                MessageBubble(message)
+            }
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = scheme.surface,
+        color = MaterialTheme.colorScheme.surface,
         shape = shapes.large,
         tonalElevation = spacing.hairline,
     ) {
@@ -304,43 +393,36 @@ private fun ComposerCard() {
             modifier = Modifier.padding(spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            Text(
-                text = "Composer",
-                style = typography.titleMedium,
-                color = scheme.onSurface,
+            OutlinedTextField(
+                value = state.draft,
+                onValueChange = state.onDraftChange,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isSending,
+                minLines = 3,
+                maxLines = 6,
+                shape = shapes.input,
+                label = { Text("输入消息") },
+                placeholder = { Text("例如：帮我验证 M3 的持久化和网络链路") },
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(shapes.input)
-                    .background(extra.chatInputBackground)
-                    .border(spacing.hairline, extra.chatInputBorder, shapes.input)
-                    .padding(horizontal = spacing.sm + spacing.micro, vertical = spacing.sm),
-            ) {
-                Text(
-                    text = "Send a message...",
-                    style = typography.bodyMedium,
-                    color = extra.textTertiary,
-                )
-            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.xs + spacing.micro),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(
-                    onClick = {},
+                    onClick = state.onSendMessage,
+                    enabled = state.draft.isNotBlank() && !state.isSending,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = scheme.primary,
-                        contentColor = scheme.onPrimary,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                 ) {
-                    Text("发送")
+                    Text(if (state.isSending) "发送中..." else "发送")
                 }
                 Text(
-                    text = "Errors keep `colorScheme.error` semantics.",
+                    text = "当前发送链路：Room3 -> Ktor MockEngine -> Room3",
                     style = typography.bodySmall,
-                    color = scheme.error,
+                    color = extra.textSecondary,
                 )
             }
         }
@@ -348,10 +430,69 @@ private fun ComposerCard() {
 }
 
 @Composable
+private fun ChatMetaCard(
+    state: BreezeChatState,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val spacing = BreezeTheme.spacing
+    val typography = BreezeTheme.typography
+    val extra = BreezeTheme.extendedColors
+    val activeConversation = state.conversations.firstOrNull { it.id == state.activeConversationId }
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+        Text(
+            text = activeConversation?.title ?: "未发送的新对话",
+            style = typography.titleMedium,
+            color = scheme.onSurface,
+        )
+        Text(
+            text = "ConversationId: ${state.activeConversationId}",
+            style = typography.bodySmall,
+            color = extra.textSecondary,
+        )
+    }
+}
+
+@Composable
+private fun MessageBubble(
+    message: Message,
+) {
+    val extra = BreezeTheme.extendedColors
+    val shapes = BreezeTheme.shapes
+    val spacing = BreezeTheme.spacing
+    val typography = BreezeTheme.typography
+    val isUser = message.role == Message.Role.User
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+    ) {
+        Column(
+            modifier = Modifier
+                .clip(if (isUser) shapes.bubbles.outgoing else shapes.bubbles.incoming)
+                .background(if (isUser) extra.chatUserBubble else extra.chatAiBubble)
+                .padding(horizontal = spacing.sm + spacing.micro, vertical = spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.xxs),
+        ) {
+            Text(
+                text = if (isUser) "User" else "Assistant",
+                style = typography.labelMedium,
+                color = if (isUser) extra.chatUserText else extra.chatAiText,
+            )
+            Text(
+                text = message.content,
+                style = typography.bodyMedium,
+                color = if (isUser) extra.chatUserText else extra.chatAiText,
+            )
+        }
+    }
+}
+
+@Composable
 private fun StatusChip(
     text: String,
-    containerColor: androidx.compose.ui.graphics.Color,
-    contentColor: androidx.compose.ui.graphics.Color,
+    containerColor: Color,
+    contentColor: Color,
 ) {
     val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
@@ -371,76 +512,44 @@ private fun StatusChip(
     }
 }
 
-@Composable
-private fun MessageBubble(
-    text: String,
-    background: androidx.compose.ui.graphics.Color,
-    contentColor: androidx.compose.ui.graphics.Color,
-    alignEnd: Boolean,
-) {
-    val shapes = BreezeTheme.shapes
-    val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start,
-    ) {
-        Box(
-            modifier = Modifier
-                .clip(if (alignEnd) shapes.bubbles.outgoing else shapes.bubbles.incoming)
-                .background(background)
-                .padding(horizontal = spacing.sm + spacing.micro, vertical = spacing.sm),
-        ) {
-            Text(
-                text = text,
-                style = typography.bodyMedium,
-                color = contentColor,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CodeSnippetCard(code: String) {
-    val extra = BreezeTheme.extendedColors
-    val shapes = BreezeTheme.shapes
-    val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shapes.codeBlock)
-            .background(extra.codeBlockBackground)
-            .border(spacing.hairline, extra.codeBlockBorder, shapes.codeBlock)
-            .padding(spacing.sm + spacing.micro),
-        verticalArrangement = Arrangement.spacedBy(spacing.xs),
-    ) {
-        Text(
-            text = "Theme tokens",
-            style = typography.labelLarge,
-            color = extra.textSecondary,
-        )
-        Text(
-            text = code,
-            style = typography.code,
-            color = extra.textPrimary,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(spacing.xs)
-                    .clip(shapes.pill)
-                    .background(MaterialTheme.colorScheme.error),
-            )
-            Spacer(modifier = Modifier.size(spacing.xs))
-            Text(
-                text = "Error and success colors stay semantic, not decorative.",
-                style = typography.bodySmall,
-                color = extra.textSecondary,
-            )
-        }
-        Spacer(modifier = Modifier.height(spacing.micro))
-    }
+private fun previewChatState(): BreezeChatState {
+    val now = Clock.System.now()
+    val conversationId = "preview-conversation"
+    return BreezeChatState(
+        conversations =
+            listOf(
+                Conversation(
+                    id = conversationId,
+                    title = "M3 Preview",
+                    modelId = "breeze-echo",
+                    updatedAt = now,
+                )
+            ),
+        messages =
+            listOf(
+                Message(
+                    id = "preview-user",
+                    conversationId = conversationId,
+                    role = Message.Role.User,
+                    content = "帮我确认 M3 是否已经接通。",
+                    createdAt = now,
+                ),
+                Message(
+                    id = "preview-assistant",
+                    conversationId = conversationId,
+                    role = Message.Role.Assistant,
+                    content = "现在预览展示的就是接线后的最终形态，运行时会改用真实 Room3 + MockEngine。",
+                    createdAt = now,
+                ),
+            ),
+        activeConversationId = conversationId,
+        draft = "例如：再发一条验证消息",
+        isSending = false,
+        errorMessage = null,
+        settings = BreezeSettingsSnapshot(),
+        onDraftChange = {},
+        onConversationSelected = {},
+        onNewConversation = {},
+        onSendMessage = {},
+    )
 }

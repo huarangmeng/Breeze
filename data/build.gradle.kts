@@ -10,6 +10,9 @@ plugins {
 
 kotlin {
     jvmToolchain(21)
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
 
     android {
         namespace = "com.hrm.breeze.data"
@@ -40,14 +43,13 @@ kotlin {
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.datastore.preferences.core)
 
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.contentNegotiation)
             implementation(libs.ktor.client.logging)
+            implementation(libs.ktor.client.mock)
             implementation(libs.ktor.serialization.kotlinxJson)
-
-            implementation(libs.multiplatform.settings)
-            implementation(libs.multiplatform.settings.coroutines)
 
             implementation(libs.coil.core)
             api(libs.coil.network.ktor)
@@ -58,23 +60,28 @@ kotlin {
             implementation(libs.sqlite)
         }
         androidMain.dependencies {
+            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.sqlite.bundled)
         }
         iosMain.dependencies {
+            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.darwin)
             implementation(libs.sqlite.bundled)
         }
         jvmMain.dependencies {
+            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.java)
             implementation(libs.sqlite.bundled)
         }
         jsMain.dependencies {
+            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.js)
             // Web 端额外需要 WebWorkerSQLiteDriver，具体 Worker 由 composeApp 的 web 入口提供。
             implementation(libs.sqlite.web)
         }
         wasmJsMain.dependencies {
+            implementation(libs.multiplatform.settings)
             implementation(libs.ktor.client.js)
             implementation(libs.sqlite.web)
             implementation(libs.kotlinx.browser)
