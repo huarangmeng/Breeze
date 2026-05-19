@@ -15,6 +15,12 @@ interface MessageDao {
     )
     fun observeMessages(conversationId: String): Flow<List<MessageEntity>>
 
+    @Query(
+        "SELECT * FROM messages WHERE conversationId = :conversationId " +
+            "ORDER BY createdAtEpochMillis ASC"
+    )
+    suspend fun getMessages(conversationId: String): List<MessageEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: MessageEntity)
 }

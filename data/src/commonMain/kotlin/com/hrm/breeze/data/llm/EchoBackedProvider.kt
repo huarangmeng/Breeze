@@ -10,10 +10,14 @@ class EchoBackedProvider(
     override val id: LlmProviderId,
     private val chatApi: BreezeChatApi,
 ) : LlmProvider {
-    override suspend fun complete(request: LlmCompletionRequest): String =
-        chatApi.echoMessage(
+    override suspend fun complete(request: LlmCompletionRequest): String {
+        val latestUserMessage =
+            request.messages.lastOrNull { it.role == LlmMessage.Role.User }?.content.orEmpty()
+
+        return chatApi.echoMessage(
             conversationId = request.conversationId,
-            text = request.text,
+            text = latestUserMessage,
             modelId = request.model.id,
         )
+    }
 }

@@ -4,13 +4,14 @@ import coil3.ImageLoader
 import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.core.coroutines.defaultAppDispatchers
 import com.hrm.breeze.data.image.createBreezeImageLoader
-import com.hrm.breeze.data.llm.EchoBackedProvider
 import com.hrm.breeze.data.llm.LlmProviderRegistry
 import com.hrm.breeze.data.llm.LocalProvider
+import com.hrm.breeze.data.llm.OpenAiCompatibleProvider
 import com.hrm.breeze.data.network.BreezeChatApi
 import com.hrm.breeze.data.network.KtorBreezeChatApi
+import com.hrm.breeze.data.network.KtorOpenAiCompatibleChatApi
+import com.hrm.breeze.data.network.OpenAiCompatibleChatApi
 import com.hrm.breeze.data.network.createBreezeHttpClient
-import com.hrm.breeze.data.network.createMockBreezeHttpClient
 import com.hrm.breeze.data.repository.ChatRepositoryImpl
 import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.data.settings.createBreezeSettings
@@ -25,19 +26,11 @@ import io.ktor.client.HttpClient
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
-private const val USE_MOCK_ECHO_SERVICE = true
-
 private val infrastructureModule =
     module {
         single<AppDispatchers> { defaultAppDispatchers() }
         single<BreezeSettings> { createBreezeSettings() }
-        single<HttpClient> {
-            if (USE_MOCK_ECHO_SERVICE) {
-                createMockBreezeHttpClient()
-            } else {
-                createBreezeHttpClient()
-            }
-        }
+        single<HttpClient> { createBreezeHttpClient() }
         single<BreezeDatabase> {
             BreezeDatabase.create(dispatchers = get())
         }
@@ -47,13 +40,14 @@ private val infrastructureModule =
                 endpointProvider = get<BreezeSettings>()::getEchoEndpoint,
             )
         }
-        single { LocalProvider(get()) }
+        single<OpenAiCompatibleChatApi> { KtorOpenAiCompatibleChatApi(get()) }
+        single { LocalProvider() }
         single {
             LlmProviderRegistry(
                 providers = listOf(
                     get<LocalProvider>(),
-                    EchoBackedProvider(LlmProviderId.OpenAI, get()),
-                    EchoBackedProvider(LlmProviderId.Anthropic, get()),
+                    OpenAiCompatibleProvider(LlmProviderId.OpenAI, get(), get()),
+                    OpenAiCompatibleProvider(LlmProviderId.Anthropic, get(), get()),
                 ),
             )
         }
@@ -72,7 +66,7 @@ private val presentationModule =
     module {
         viewModel { ChatViewModel(get(), get()) }
         viewModel { HistoryViewModel(get()) }
-        viewModel { ApiConfigViewModel(get()) }
+        viewModel { ApiConfigViewModel(get(), get()) }
         viewModel { ModelSettingsViewModel(get()) }
     }
 

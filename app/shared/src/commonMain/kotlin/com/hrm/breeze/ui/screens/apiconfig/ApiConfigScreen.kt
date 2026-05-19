@@ -1,7 +1,6 @@
 package com.hrm.breeze.ui.screens.apiconfig
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,11 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextOverflow
-import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.generated.resources.*
-import com.hrm.breeze.i18n.providerDescriptionRes
-import com.hrm.breeze.i18n.providerNoticeRes
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.theme.BreezeTheme
 import org.jetbrains.compose.resources.stringResource
@@ -42,10 +37,10 @@ fun ApiConfigScreen(
     state: ApiConfigUiState,
     onBack: () -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenModelSettings: () -> Unit,
-    onProviderSelected: (LlmProviderId) -> Unit,
     onEndpointChange: (String) -> Unit,
     onApiTokenChange: (String) -> Unit,
+    onModelIdChange: (String) -> Unit,
+    onTestConnection: () -> Unit,
     onReset: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -92,8 +87,6 @@ fun ApiConfigScreen(
             ) {
                 if (!embeddedMode) {
                     ApiConfigTopBar(
-                        state = state,
-                        previewMode = previewMode,
                         onBack = onBack,
                         showBackButton = showBackButton,
                     )
@@ -110,23 +103,17 @@ fun ApiConfigScreen(
                             .padding(spacing.lg),
                         verticalArrangement = Arrangement.spacedBy(spacing.lg),
                     ) {
-                        if (!embeddedMode) {
-                            ApiIntroSection()
-                        }
                         ApiFieldSection(
                             state = state,
                             tokenVisible = tokenVisible,
                             onEndpointChange = onEndpointChange,
                             onApiTokenChange = onApiTokenChange,
+                            onModelIdChange = onModelIdChange,
                             onTokenVisibilityChange = { tokenVisible = it },
                         )
-                        ProviderGrid(
-                            state = state,
-                            onProviderSelected = onProviderSelected,
-                        )
-                        ProviderNoticeCard(state.selectedProviderId)
                         ApiActionSection(
                             state = state,
+                            onTestConnection = onTestConnection,
                             onReset = onReset,
                             onSave = onSave,
                         )
@@ -139,8 +126,6 @@ fun ApiConfigScreen(
 
 @Composable
 private fun ApiConfigTopBar(
-    state: ApiConfigUiState,
-    previewMode: Boolean,
     onBack: () -> Unit,
     showBackButton: Boolean,
 ) {
@@ -176,56 +161,6 @@ private fun ApiConfigTopBar(
                 style = typography.titleLarge,
                 color = scheme.onBackground,
             )
-            Text(
-                text = if (previewMode) stringResource(Res.string.preview_provider_settings) else stringResource(Res.string.api_details_subtitle),
-                style = typography.bodySmall,
-                color = extra.textSecondary,
-            )
-            Text(
-                text = stringResource(Res.string.current_provider, state.selectedProviderId.displayName),
-                style = typography.bodySmall,
-                color = extra.textSecondary,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ApiIntroSection() {
-    val scheme = MaterialTheme.colorScheme
-    val shapes = BreezeTheme.shapes
-    val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
-    val extra = BreezeTheme.extendedColors
-
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Surface(
-            color = scheme.primaryContainer,
-            shape = shapes.medium,
-        ) {
-            Text(
-                text = "[]",
-                modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.md),
-                style = typography.labelLarge,
-                color = scheme.primary,
-            )
-        }
-        Column(
-            verticalArrangement = Arrangement.spacedBy(spacing.xxs),
-        ) {
-            Text(
-                text = stringResource(Res.string.configure_your_api),
-                style = typography.titleMedium,
-                color = scheme.onSurface,
-            )
-            Text(
-                text = stringResource(Res.string.api_stored_locally),
-                style = typography.bodySmall,
-                color = extra.textSecondary,
-            )
         }
     }
 }
@@ -236,6 +171,7 @@ private fun ApiFieldSection(
     tokenVisible: Boolean,
     onEndpointChange: (String) -> Unit,
     onApiTokenChange: (String) -> Unit,
+    onModelIdChange: (String) -> Unit,
     onTokenVisibilityChange: (Boolean) -> Unit,
 ) {
     val spacing = BreezeTheme.spacing
@@ -268,90 +204,16 @@ private fun ApiFieldSection(
             enabled = !state.isSaving,
             shape = shapes.input,
             label = { Text(stringResource(Res.string.base_url)) },
-            placeholder = { Text("https://api.example.com/v1") },
+            placeholder = { Text(stringResource(Res.string.base_url_hint)) },
         )
-    }
-}
-
-@Composable
-private fun ProviderGrid(
-    state: ApiConfigUiState,
-    onProviderSelected: (LlmProviderId) -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val shapes = BreezeTheme.shapes
-    val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
-    val extra = BreezeTheme.extendedColors
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        Text(
-            text = stringResource(Res.string.model_type),
-            style = typography.labelLarge,
-            color = scheme.onSurface,
-        )
-        Row(
+        OutlinedTextField(
+            value = state.modelId,
+            onValueChange = onModelIdChange,
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            state.availableProviders.forEach { providerId ->
-                val selected = providerId == state.selectedProviderId
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onProviderSelected(providerId) },
-                    color = if (selected) scheme.primaryContainer else scheme.surface,
-                    shape = shapes.medium,
-                    border = BorderStroke(
-                        spacing.hairline,
-                        if (selected) scheme.primary else scheme.outlineVariant,
-                    ),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(spacing.xxs),
-                    ) {
-                        Text(
-                            text = providerId.displayName,
-                            style = typography.labelLarge,
-                            color = if (selected) scheme.primary else scheme.onSurface,
-                        )
-                        Text(
-                            text = stringResource(providerDescriptionRes(providerId)),
-                            style = typography.bodySmall,
-                            color = extra.textSecondary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProviderNoticeCard(
-    providerId: LlmProviderId,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val shapes = BreezeTheme.shapes
-    val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
-    val extra = BreezeTheme.extendedColors
-
-    Surface(
-        color = scheme.surfaceVariant,
-        shape = shapes.medium,
-        border = BorderStroke(spacing.hairline, scheme.outlineVariant),
-    ) {
-        Text(
-            text = stringResource(providerNoticeRes(providerId)),
-            modifier = Modifier.padding(spacing.md),
-            style = typography.bodySmall,
-            color = extra.textSecondary,
+            enabled = !state.isSaving,
+            shape = shapes.input,
+            label = { Text(stringResource(Res.string.model_id)) },
+            placeholder = { Text(stringResource(Res.string.model_id_hint)) },
         )
     }
 }
@@ -359,6 +221,7 @@ private fun ProviderNoticeCard(
 @Composable
 private fun ApiActionSection(
     state: ApiConfigUiState,
+    onTestConnection: () -> Unit,
     onReset: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -378,6 +241,13 @@ private fun ApiActionSection(
                 color = extra.textSecondary,
             )
         }
+        state.statusDetail?.let { statusDetail ->
+            Text(
+                text = statusDetail,
+                style = typography.bodySmall,
+                color = extra.textSecondary,
+            )
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -385,14 +255,21 @@ private fun ApiActionSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(
-                onClick = {},
+                onClick = onTestConnection,
+                enabled = state.isFormComplete && !state.isSaving && !state.isTesting,
                 shape = shapes.medium,
                 colors = ButtonDefaults.textButtonColors(
                     containerColor = scheme.surface,
                     contentColor = scheme.primary,
                 ),
             ) {
-                Text(stringResource(Res.string.test_connection))
+                Text(
+                    if (state.isTesting) {
+                        stringResource(Res.string.testing_connection)
+                    } else {
+                        stringResource(Res.string.test_connection)
+                    }
+                )
             }
 
             Row(
@@ -411,7 +288,7 @@ private fun ApiActionSection(
                 }
                 Button(
                     onClick = onSave,
-                    enabled = state.hasUnsavedChanges && !state.isSaving,
+                    enabled = state.isFormComplete && state.hasUnsavedChanges && !state.isSaving && !state.isTesting,
                     shape = shapes.medium,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = scheme.primary,
@@ -427,8 +304,8 @@ private fun ApiActionSection(
 
 internal fun previewApiConfigUiState(): ApiConfigUiState =
     ApiConfigUiState(
-        selectedProviderId = LlmProviderId.OpenAI,
-        endpoint = "https://api.openai.com/v1",
-        apiToken = "sk-preview-token",
+        endpoint = "",
+        apiToken = "",
+        modelId = "",
         hasUnsavedChanges = true,
     )

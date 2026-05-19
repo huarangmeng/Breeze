@@ -3,6 +3,7 @@ package com.hrm.breeze.data.repository
 import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.core.coroutines.defaultAppDispatchers
 import com.hrm.breeze.data.llm.LlmCompletionRequest
+import com.hrm.breeze.data.llm.LlmMessage
 import com.hrm.breeze.data.llm.LlmProviderRegistry
 import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.data.storage.BreezeDatabase
@@ -41,6 +42,7 @@ class ChatRepositoryImpl(
         val title = text.trim().ifBlank { "新对话" }.take(32)
         val providerId = settings.getCurrentProviderId()
         val modelId = settings.getCurrentModelId()
+        val messageDao = database.messageDao()
         val modelProfile =
             ModelProfile(
                 id = modelId,
@@ -64,13 +66,16 @@ class ChatRepositoryImpl(
             content = text,
             createdAtEpochMillis = now.toEpochMilliseconds(),
         )
-        database.messageDao().insertMessage(userMessage)
+        val historyMessages =
+            messageDao.getMessages(conversationId).map(MessageEntity::toLlmMessage) +
+                userMessage.toLlmMessage()
+        messageDao.insertMessage(userMessage)
 
         val assistantText =
             llmProviderRegistry.require(modelProfile.providerId).complete(
                 LlmCompletionRequest(
                     conversationId = conversationId,
-                    text = text,
+                    messages = historyMessages,
                     model = modelProfile,
                 )
             )
@@ -82,7 +87,7 @@ class ChatRepositoryImpl(
             content = assistantText,
             createdAtEpochMillis = assistantTime.toEpochMilliseconds(),
         )
-        database.messageDao().insertMessage(assistantMessage)
+        messageDao.insertMessage(assistantMessage)
         database.conversationDao().upsertConversation(
             ConversationEntity(
                 id = conversationId,
@@ -95,3 +100,13 @@ class ChatRepositoryImpl(
         emit(assistantMessage.toDomain())
     }.flowOn(dispatchers.io)
 }
+
+private fun MessageEntity.toLlmMessage(): LlmMessage =
+    LlmMessage(
+        role = when (role) {
+            "assistant" -> LlmMessage.Role.Assistant
+            "system" -> LlmMessage.Role.System
+            else -> LlmMessage.Role.User
+        },
+        content = content,
+    )

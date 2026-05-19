@@ -24,7 +24,7 @@ fun ModelSettingsRoute(
         onBack = onBack,
         onOpenHistory = onOpenHistory,
         onOpenApiConfig = onOpenApiConfig,
-        onModelSelected = viewModel::onModelSelected,
+        onModelIdChange = viewModel::onModelIdChange,
         onReset = viewModel::onReset,
         onSave = viewModel::onSave,
         embeddedMode = embeddedMode,

@@ -7,10 +7,6 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.data.llm.LlmProviderRegistry
 import com.hrm.breeze.data.llm.LocalProvider
-import com.hrm.breeze.data.network.BREEZE_MOCK_ECHO_ENDPOINT
-import com.hrm.breeze.data.network.BreezeChatApi
-import com.hrm.breeze.data.network.KtorBreezeChatApi
-import com.hrm.breeze.data.network.createMockBreezeHttpClient
 import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.data.storage.BreezeDatabase
 import com.hrm.breeze.data.storage.createPlatformDatabaseBuilder
@@ -40,9 +36,7 @@ class ChatRepositoryImplJvmTest {
         val tempDirectory = Files.createTempDirectory("breeze-chat-repository-test")
         val database = createDatabase(tempDirectory.toString(), dispatchers)
         val settings = createSettings(tempDirectory.toString())
-        val httpClient = createMockBreezeHttpClient()
-        val chatApi: BreezeChatApi = KtorBreezeChatApi(httpClient) { BREEZE_MOCK_ECHO_ENDPOINT }
-        val providerRegistry = LlmProviderRegistry(listOf(LocalProvider(chatApi)))
+        val providerRegistry = LlmProviderRegistry(listOf(LocalProvider()))
         val clock =
             SequenceClock(
                 instants =
@@ -72,7 +66,7 @@ class ChatRepositoryImplJvmTest {
             val messages = repository.observeMessages("conversation-1").first()
 
             assertEquals(1, emitted.size)
-            assertEquals("Breeze mock(mock-model): hello breeze", emitted.single().content)
+            assertEquals("Breeze local(mock-model): hello breeze", emitted.single().content)
 
             assertEquals(1, conversations.size)
             assertEquals("hello breeze", conversations.single().title)
@@ -80,7 +74,7 @@ class ChatRepositoryImplJvmTest {
 
             assertEquals(2, messages.size)
             assertEquals("hello breeze", messages.first().content)
-            assertEquals("Breeze mock(mock-model): hello breeze", messages.last().content)
+            assertEquals("Breeze local(mock-model): hello breeze", messages.last().content)
             assertEquals(
                 listOf(
                     com.hrm.breeze.domain.model.Message.Role.User,
@@ -90,7 +84,6 @@ class ChatRepositoryImplJvmTest {
             )
             assertTrue(messages.last().createdAt > messages.first().createdAt)
         } finally {
-            httpClient.close()
             database.close()
         }
     }

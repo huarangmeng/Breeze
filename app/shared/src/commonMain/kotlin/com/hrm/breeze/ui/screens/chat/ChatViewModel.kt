@@ -166,6 +166,10 @@ class ChatViewModel(
         if (text.isBlank() || isSending.value) {
             return
         }
+        if (state.value.settings.currentModelId.isBlank()) {
+            errorMessage.value = Res.string.status_model_required_before_send
+            return
+        }
 
         val conversationId = activeConversationId.value
         draft.value = ""

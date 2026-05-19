@@ -5,7 +5,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.hrm.breeze.data.network.BREEZE_MOCK_ECHO_ENDPOINT
 import com.hrm.breeze.domain.model.LlmProviderId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -13,8 +12,8 @@ import kotlinx.coroutines.flow.map
 import okio.Path
 
 private const val DEFAULT_NAMESPACE = "breeze.preferences"
-private const val DEFAULT_ECHO_ENDPOINT = BREEZE_MOCK_ECHO_ENDPOINT
-private const val DEFAULT_MODEL_ID = "breeze-echo"
+private const val DEFAULT_ECHO_ENDPOINT = ""
+private const val DEFAULT_MODEL_ID = ""
 private const val DEFAULT_PROVIDER_ID = "local"
 private const val DEFAULT_APP_LANGUAGE_TAG = "system"
 

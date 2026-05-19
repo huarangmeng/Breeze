@@ -78,7 +78,8 @@ private fun HttpClientConfig<*>.applyBreezeDefaults() {
                 Log.d(HTTP_LOG_TAG) { message }
             }
         }
-        level = LogLevel.INFO
+        level = LogLevel.ALL
+        sanitizeHeader { header -> header == HttpHeaders.Authorization }
     }
 
     install(SSE)

@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -29,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.generated.resources.*
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
@@ -43,7 +43,7 @@ fun ModelSettingsScreen(
     onBack: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenApiConfig: () -> Unit,
-    onModelSelected: (String) -> Unit,
+    onModelIdChange: (String) -> Unit,
     onReset: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -114,7 +114,7 @@ fun ModelSettingsScreen(
                     ) {
                         ModelSelectionSection(
                             state = state,
-                            onModelSelected = onModelSelected,
+                            onModelIdChange = onModelIdChange,
                         )
                         ParameterRow(
                             title = stringResource(Res.string.temperature),
@@ -228,7 +228,7 @@ private fun ModelSettingsHeader(
 @Composable
 private fun ModelSelectionSection(
     state: ModelSettingsUiState,
-    onModelSelected: (String) -> Unit,
+    onModelIdChange: (String) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val shapes = BreezeTheme.shapes
@@ -244,45 +244,22 @@ private fun ModelSelectionSection(
             style = typography.labelLarge,
             color = scheme.onSurface,
         )
-        Row(
+        OutlinedTextField(
+            value = state.selectedModelId,
+            onValueChange = onModelIdChange,
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            state.availableModels.take(3).forEach { model ->
-                val selected = model.id == state.selectedModelId
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onModelSelected(model.id) },
-                    color = if (selected) scheme.primaryContainer else scheme.surface,
-                    shape = shapes.medium,
-                    border = BorderStroke(
-                        spacing.hairline,
-                        if (selected) scheme.primary else scheme.outlineVariant,
-                    ),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(spacing.xxs),
-                    ) {
-                        Text(
-                            text = model.title,
-                            style = typography.labelLarge,
-                            color = if (selected) scheme.primary else scheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = stringResource(model.descriptionRes),
-                            style = typography.bodySmall,
-                            color = extra.textSecondary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-        }
+            enabled = !state.isSaving,
+            shape = shapes.input,
+            label = { Text(stringResource(Res.string.model_id)) },
+            placeholder = { Text("deepseek/deepseek-v4-flash:free") },
+            supportingText = {
+                Text(
+                    text = stringResource(Res.string.model_id_description),
+                    style = typography.bodySmall,
+                    color = extra.textSecondary,
+                )
+            },
+        )
     }
 }
 
@@ -476,12 +453,7 @@ private fun ModelSettingsActions(
 
 internal fun previewModelSettingsUiState(): ModelSettingsUiState =
     ModelSettingsUiState(
-        selectedModelId = "gpt-4.1-mini",
         providerId = LlmProviderId.OpenAI,
-        availableModels = listOf(
-            ModelOption("gpt-4.1-mini", "GPT-4.1 mini", Res.string.model_desc_gpt41_mini),
-            ModelOption("gpt-4.1", "GPT-4.1", Res.string.model_desc_gpt41),
-            ModelOption("o4-mini", "o4-mini", Res.string.model_desc_o4_mini),
-        ),
+        selectedModelId = "",
         hasUnsavedChanges = true,
     )

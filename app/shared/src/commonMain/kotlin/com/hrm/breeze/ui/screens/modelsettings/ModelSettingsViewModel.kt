@@ -16,16 +16,8 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 
 @Immutable
-data class ModelOption(
-    val id: String,
-    val title: String,
-    val descriptionRes: StringResource,
-)
-
-@Immutable
 data class ModelSettingsUiState(
     val providerId: LlmProviderId = BreezeSettingsSnapshot().currentProviderId,
-    val availableModels: List<ModelOption> = modelOptionsFor(BreezeSettingsSnapshot().currentProviderId),
     val selectedModelId: String = BreezeSettingsSnapshot().currentModelId,
     val isSaving: Boolean = false,
     val hasUnsavedChanges: Boolean = false,
@@ -55,7 +47,6 @@ class ModelSettingsViewModel(
             val selectedModelId = draftModelId ?: snapshot.currentModelId
             ModelSettingsUiState(
                 providerId = snapshot.currentProviderId,
-                availableModels = modelOptionsFor(snapshot.currentProviderId),
                 selectedModelId = selectedModelId,
                 isSaving = isSaving,
                 hasUnsavedChanges = selectedModelId != snapshot.currentModelId,
@@ -74,7 +65,7 @@ class ModelSettingsViewModel(
             initialValue = ModelSettingsUiState(),
         )
 
-    fun onModelSelected(modelId: String) {
+    fun onModelIdChange(modelId: String) {
         draftModelId.value = modelId
         statusMessage.value = null
     }
@@ -89,13 +80,18 @@ class ModelSettingsViewModel(
         if (isSaving.value || !currentState.hasUnsavedChanges) {
             return
         }
+        val targetModelId = currentState.selectedModelId.trim()
+        if (targetModelId.isBlank()) {
+            statusMessage.value = Res.string.status_model_id_required
+            return
+        }
 
         viewModelScope.launch {
             isSaving.value = true
             statusMessage.value = null
 
             runCatching {
-                settings.updateCurrentModelId(currentState.selectedModelId)
+                settings.updateCurrentModelId(targetModelId)
             }.onSuccess {
                 draftModelId.value = null
                 statusMessage.value = Res.string.status_model_saved
@@ -106,27 +102,4 @@ class ModelSettingsViewModel(
             isSaving.value = false
         }
     }
-}
-
-private fun modelOptionsFor(providerId: LlmProviderId): List<ModelOption> = when (providerId) {
-    LlmProviderId.Local ->
-        listOf(
-            ModelOption("breeze-echo", "Breeze Echo", Res.string.model_desc_breeze_echo),
-            ModelOption("qwen2.5:7b", "Qwen 2.5 7B", Res.string.model_desc_qwen25_7b),
-            ModelOption("llama3.2:3b", "Llama 3.2 3B", Res.string.model_desc_llama32_3b),
-        )
-
-    LlmProviderId.OpenAI ->
-        listOf(
-            ModelOption("gpt-4.1-mini", "GPT-4.1 mini", Res.string.model_desc_gpt41_mini),
-            ModelOption("gpt-4.1", "GPT-4.1", Res.string.model_desc_gpt41),
-            ModelOption("o4-mini", "o4-mini", Res.string.model_desc_o4_mini),
-        )
-
-    LlmProviderId.Anthropic ->
-        listOf(
-            ModelOption("claude-3-5-haiku-latest", "Claude 3.5 Haiku", Res.string.model_desc_claude_35_haiku_latest),
-            ModelOption("claude-3-7-sonnet-latest", "Claude 3.7 Sonnet", Res.string.model_desc_claude_37_sonnet_latest),
-            ModelOption("claude-opus-4-1", "Claude Opus 4.1", Res.string.model_desc_claude_opus_41),
-        )
 }
