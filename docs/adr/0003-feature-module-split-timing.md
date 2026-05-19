@@ -2,7 +2,7 @@
 
 ## Context
 
-`Breeze` 已经在 `:shared` 内落地了 4 个真实 feature 页面：
+`Breeze` 已经在 `:app:shared` 内落地了 4 个真实 feature 页面：
 
 - `chat`
 - `history`
@@ -14,9 +14,9 @@
 - `:core-ui` 承载主题、响应式和导航基础类型
 - `:domain` 承载模型与 repository 接口
 - `:data` 承载 repository 实现、Settings、网络与存储
-- `:shared` 负责根 `App()`、`NavHost`、Koin 与 ViewModel/Route 装配
+- `:app:shared` 负责根 `App()`、`NavHost`、Koin 与 ViewModel/Route 装配
 
-当前 feature 代码虽然在目录上已经收敛到 `shared/src/commonMain/kotlin/com/hrm/breeze/ui/screens/*`，但它们仍然共享以下装配条件：
+当前 feature 代码虽然在目录上已经收敛到 `app/shared/src/commonMain/kotlin/com/hrm/breeze/ui/screens/*`，但它们仍然共享以下装配条件：
 
 - 同一套 `Koin` presentation module
 - 同一个 `BreezeNavHost`
@@ -29,10 +29,10 @@
 
 当前阶段 **暂不拆** `:feature:*` 模块，继续保持：
 
-- feature 目录级拆分留在 `:shared`
+- feature 目录级拆分留在 `:app:shared`
 - `Route + ViewModel + Screen` 作为 feature 边界
 - `Destination` 保留在 `:core-ui/navigation`
-- 根导航与根布局继续由 `:shared/navigation/BreezeNavHost.kt` 统一装配
+- 根导航与根布局继续由 `app/shared/navigation/BreezeNavHost.kt` 统一装配
 
 只有在出现以下任一信号时，再启动 feature 模块拆分：
 
@@ -51,7 +51,7 @@
 
 负面：
 
-- `:shared` 仍然同时承担根装配与 feature presentation 代码
+- `:app:shared` 仍然同时承担根装配与 feature presentation 代码
 - 未来如果 feature 继续膨胀，再拆模块时仍需要一次迁移成本
 
 后续动作：

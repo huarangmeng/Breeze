@@ -12,7 +12,7 @@
 
 ## M0 模块拆分 ✅
 
-目标：建立 `:core` / `:core-ui` / `:domain` / `:data` / `:shared` 五模块骨架，确立分层与依赖方向。
+目标：建立 `:core` / `:core-ui` / `:domain` / `:data` / `:app:shared` 五模块骨架，确立分层与依赖方向。
 
 | ID    | 任务                                                                          | 状态 |
 | ----- | ----------------------------------------------------------------------------- | ---- |
@@ -20,7 +20,7 @@
 | M0-2  | 新增 `:core-ui` 模块，迁入 `BreezeTheme` + `BreezeColors`，新增 `WindowInfo`  | ✅   |
 | M0-3  | 新增 `:domain` 模块：`Message` / `Conversation` / `ChatRepository` / UseCase | ✅   |
 | M0-4  | 新增 `:data` 模块：Ktor + Room3 + Settings + Coil 依赖装配，占位 Repository | ✅   |
-| M0-5  | `settings.gradle.kts` include + `:shared` 改依赖新模块                        | ✅   |
+| M0-5  | `settings.gradle.kts` include + `:app:shared` 改依赖新模块                    | ✅   |
 | M0-6  | `libs.versions.toml` 补齐导航 / 网络 / 数据库 / 图片 / 日志 / 测试 / Markdown  | ✅   |
 | M0-7  | 架构文档 `docs/architecture/overview.md` 落地                                 | ✅   |
 
@@ -70,7 +70,7 @@
 | M3-2  | 各端 Ktor 引擎 actual 工厂（OkHttp / Darwin / Java / JS）；wasmJs 方案定稿 | ✅   |
 | M3-3  | `:data/storage`：Room3 数据库骨架 `BreezeDatabase`（`Conversation` + `Message` 两张表） | ✅   |
 | M3-4  | 各端 `SQLiteDriver` 工厂：Android/JVM 用 bundled，iOS 用 bundled，Web 用 `WebWorkerSQLiteDriver` | ✅   |
-| M3-5  | Web Worker 资源：`webApp/src/webMain/resources` 里放 sqlite web worker js       | ✅   |
+| M3-5  | Web Worker 资源：`app/web/src/webMain/resources` 里放 sqlite web worker js      | ✅   |
 | M3-6  | `:data/settings/BreezeSettings`：封装 AndroidX DataStore 提供类型安全设置存储     | ✅   |
 | M3-7  | `:data/image/BreezeImageLoader`：Coil3 `ImageLoader` 工厂（使用同一个 Ktor Client） | ✅   |
 | M3-8  | `ChatRepositoryImpl`：走 Room3 + Ktor 的真实实现替换 `InMemoryChatRepository`   | ✅   |
@@ -78,10 +78,10 @@
 
 完成情况：
 
-- `BreezeDataContainer` 已接入 `shared` 根入口，默认使用仓库内 `MockEngine` 回显链路。
+- `BreezeDataContainer` 已接入 `app/shared` 根入口，默认使用仓库内 `MockEngine` 回显链路。
 - `App.kt` 已从静态 demo 切为真实会话列表 + 消息区，消息发送会写入 Room3，并通过 `KtorBreezeChatApi` 回写 assistant 消息。
 - `:data` 已补 `ChatRepositoryImplJvmTest`，覆盖“持久化 -> 请求 -> 回写消息”主链路。
-- 已验证 `:data:jvmTest`、`:shared:compileKotlinJvm`、`:androidApp:assembleDebug` 通过。
+- 已验证 `:data:jvmTest`、`:app:shared:compileKotlinJvm`、`:app:android:assembleDebug` 通过。
 
 完成标准：Desktop 和 Android 运行后，能把一条消息持久化到 Room3、通过 Ktor 发到回显链路、再读取回来；同时 `:data` 具备最小自动化验证。以上能力现已接通。
 
@@ -94,7 +94,7 @@
 | ID    | 任务                                                                          | 状态 |
 | ----- | ----------------------------------------------------------------------------- | ---- |
 | M4-1  | `:core-ui/navigation/Destination.kt`：sealed 基础类型、类型安全参数约定          | ✅   |
-| M4-2  | `:shared/navigation/BreezeNavHost.kt`：集中路由表与导航装配                       | ✅   |
+| M4-2  | `app/shared/navigation/BreezeNavHost.kt`：集中路由表与导航装配                    | ✅   |
 | M4-3  | Chat 骨架页：`ChatScreen` + `ChatViewModel` + `ChatRoute`                       | ✅   |
 | M4-4  | History 骨架页：同上                                                           | ✅   |
 | M4-5  | ApiConfig 骨架页：同上                                                         | ✅   |

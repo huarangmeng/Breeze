@@ -74,30 +74,30 @@
 
 ## 模块结构
 
-### `shared`
+### `app/shared`
 
 共享 Compose Multiplatform 库模块，承载跨端 UI、页面状态、导航装配和共享逻辑。
 
-- [`shared/src/commonMain`](./shared/src/commonMain)：所有平台共享的 UI、状态、主题和业务代码
-- [`shared/src/androidMain`](./shared/src/androidMain)：Android actual 实现
-- [`shared/src/iosMain`](./shared/src/iosMain)：iOS actual 实现
-- [`shared/src/jvmMain`](./shared/src/jvmMain)：Desktop JVM actual 实现
-- [`shared/src/jsMain`](./shared/src/jsMain)：JS Web actual 实现
-- [`shared/src/wasmJsMain`](./shared/src/wasmJsMain)：Wasm Web actual 实现
+- [`app/shared/src/commonMain`](./app/shared/src/commonMain)：所有平台共享的 UI、状态、主题和业务代码
+- [`app/shared/src/androidMain`](./app/shared/src/androidMain)：Android actual 实现
+- [`app/shared/src/iosMain`](./app/shared/src/iosMain)：iOS actual 实现
+- [`app/shared/src/jvmMain`](./app/shared/src/jvmMain)：Desktop JVM actual 实现
+- [`app/shared/src/jsMain`](./app/shared/src/jsMain)：JS Web actual 实现
+- [`app/shared/src/wasmJsMain`](./app/shared/src/wasmJsMain)：Wasm Web actual 实现
 
-### `androidApp`
+### `app/android`
 
 Android 应用入口模块。
 
-### `desktopApp`
+### `app/desktop`
 
 Desktop JVM 应用入口模块，负责 Compose Desktop window、菜单栏/窗口级配置和 native distribution 打包。
 
-### `webApp`
+### `app/web`
 
 Web 应用入口模块，负责 JS / Wasm executable target、`index.html` 和 Web Worker 资源。
 
-### `iosApp`
+### `app/ios`
 
 iOS 应用入口与 Xcode 工程。即使 UI 主要共享在 Compose 中，iOS 仍需要这里作为原生宿主。
 
@@ -144,13 +144,13 @@ UI 设计参考图目录。这里只提供桌面视图，不能视为移动端�
 macOS / Linux:
 
 ```bash
-./gradlew :androidApp:assembleDebug
+./gradlew :app:android:assembleDebug
 ```
 
 Windows:
 
 ```bash
-.\gradlew.bat :androidApp:assembleDebug
+.\gradlew.bat :app:android:assembleDebug
 ```
 
 ### Desktop (JVM)
@@ -158,13 +158,13 @@ Windows:
 macOS / Linux:
 
 ```bash
-./gradlew :desktopApp:run
+./gradlew :app:desktop:run
 ```
 
 Windows:
 
 ```bash
-.\gradlew.bat :desktopApp:run
+.\gradlew.bat :app:desktop:run
 ```
 
 ### Web (Wasm)
@@ -172,13 +172,13 @@ Windows:
 macOS / Linux:
 
 ```bash
-./gradlew :webApp:wasmJsBrowserDevelopmentRun
+./gradlew :app:web:wasmJsBrowserDevelopmentRun
 ```
 
 Windows:
 
 ```bash
-.\gradlew.bat :webApp:wasmJsBrowserDevelopmentRun
+.\gradlew.bat :app:web:wasmJsBrowserDevelopmentRun
 ```
 
 ### Web (JS)
@@ -186,18 +186,18 @@ Windows:
 macOS / Linux:
 
 ```bash
-./gradlew :webApp:jsBrowserDevelopmentRun
+./gradlew :app:web:jsBrowserDevelopmentRun
 ```
 
 Windows:
 
 ```bash
-.\gradlew.bat :webApp:jsBrowserDevelopmentRun
+.\gradlew.bat :app:web:jsBrowserDevelopmentRun
 ```
 
 ### iOS
 
-在 IDE 中使用对应运行配置，或直接打开 [`iosApp/`](./iosApp) 并通过 Xcode 运行。
+在 IDE 中使用对应运行配置，或直接打开 [`app/ios/`](./app/ios) 并通过 Xcode 运行。
 
 ## 协作约定
 

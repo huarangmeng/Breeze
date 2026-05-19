@@ -24,23 +24,23 @@
 目标拓扑：
 
 ```
-:androidApp ──┐
-:desktopApp ──┤
-:webApp     ──┤
-:iosApp     ──┴──► :shared ──► :core-ui ──► :core
-                            ├──► :domain  ──► :core
-                            └──► :data    ──► :domain, :core
+:app:android ──┐
+:app:desktop ──┤
+:app:web     ──┤
+:app:ios     ──┴──► :app:shared ──► :core-ui ──► :core
+                                  ├──► :domain  ──► :core
+                                  └──► :data    ──► :domain, :core
 ```
 
 依赖方向由 Gradle 边界强制：
 
 | 模块          | 类型              | 职责                                                                 |
 | ------------- | ----------------- | -------------------------------------------------------------------- |
-| `:androidApp` | Android App       | Activity 包装、启动入口                                              |
-| `:desktopApp` | JVM App           | Compose Desktop window、桌面打包与桌面入口                           |
-| `:webApp`     | KMP Web App       | JS / Wasm executable、Web 入口和资源                                  |
-| `:iosApp`     | Xcode 工程        | `UIViewController` 包装、启动入口                                    |
-| `:shared`     | KMP + CMP lib     | 根 `App()`、NavHost、Koin 模块、ViewModel/Route 装配                 |
+| `:app:android` | Android App     | Activity 包装、启动入口                                              |
+| `:app:desktop` | JVM App         | Compose Desktop window、桌面打包与桌面入口                           |
+| `:app:web`     | KMP Web App     | JS / Wasm executable、Web 入口和资源                                  |
+| `:app:ios`     | Xcode 工程      | `UIViewController` 包装、启动入口                                    |
+| `:app:shared`  | KMP + CMP lib   | 根 `App()`、NavHost、Koin 模块、ViewModel/Route 装配                 |
 | `:core-ui`    | KMP + CMP lib     | `BreezeTheme`、`adaptive`、通用组件、Compose 生态（navigation/coil/markdown） |
 | `:domain`     | KMP lib（纯 Kotlin） | 模型、用例、Repository **接口**；禁止 Compose / Ktor / SQLDelight |
 | `:data`       | KMP lib           | Repository 实现、Ktor、Settings（后续 SQLDelight）                   |
@@ -83,7 +83,7 @@ Feature 数量上来之后再拆 `:feature:chat` 等，现在先不拆；当前�
     ├── storage/     Room3 + SQLiteDriver 工厂
     └── repository/  ChatRepositoryImpl / InMemoryChatRepository
 
-:shared
+:app/shared
 └── breeze/
     ├── App.kt       根 Composable（迁出 theme 后使用 :core-ui）
     ├── Platform.kt  现有 expect
@@ -138,7 +138,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 - `:core/coroutines/AppDispatchers`（已落地，各端 actual 齐全）
 - `:core/logging/Log`（委托 Kermit，无需 expect）
 - `:data`（网络引擎、存储驱动按端提供）
-- `:shared/Platform`
+- `:app:shared/Platform`
 
 持久化目录策略见 [persistence-paths.md](file:///Users/bytedance/AndroidStudioProjects/Breeze/docs/platform/persistence-paths.md)，用于统一 `Room3` 与 `DataStore` 在各平台上的本地路径语义。
 
@@ -155,8 +155,8 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 | UI         | Compose Multiplatform                                | `:core-ui` / 宿主 |
 | 响应式     | Material3 Adaptive + `WindowSizeClass`              | `:core-ui/adaptive` |
 | 导航       | `androidx.navigation:navigation-compose`（CMP 版）   | `:core-ui`        |
-| 依赖注入   | Koin（`koin-core` + `koin-compose` + `koin-compose-viewmodel`） | `:shared` |
-| ViewModel  | `androidx.lifecycle:lifecycle-viewmodel*`            | `:shared`     |
+| 依赖注入   | Koin（`koin-core` + `koin-compose` + `koin-compose-viewmodel`） | `:app:shared` |
+| ViewModel  | `androidx.lifecycle:lifecycle-viewmodel*`            | `:app:shared`     |
 | 协程       | `kotlinx-coroutines`                                 | `:core` / `:data` |
 | 时间       | `kotlinx-datetime`                                   | `:core` / `:domain` |
 | 序列化     | `kotlinx-serialization-json`                         | `:data`           |
@@ -177,7 +177,7 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 
 - `androidx.navigation:navigation-compose` 的 CMP 版
 - `Destination` 基础类型已落在 `:core-ui/navigation/`
-- 路由表与 `NavHost` 已落在 `:shared/navigation/`
+- 路由表与 `NavHost` 已落在 `:app:shared/navigation/`
 - 根布局由 `BreezeNavHost` 统一切换 `Compact/Medium` 单栏与 `Expanded` ListDetail
 - 宿主只创建根 `App()` 并传入系统级依赖
 
@@ -195,11 +195,11 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 
 | 目标     | 命令                                                  |
 | -------- | ----------------------------------------------------- |
-| Android  | `./gradlew :androidApp:assembleDebug`                 |
-| Desktop  | `./gradlew :desktopApp:run`                           |
-| Web Wasm | `./gradlew :webApp:wasmJsBrowserDevelopmentRun`       |
-| Web JS   | `./gradlew :webApp:jsBrowserDevelopmentRun`           |
-| iOS      | 打开 `iosApp/` 用 Xcode                               |
+| Android  | `./gradlew :app:android:assembleDebug`                |
+| Desktop  | `./gradlew :app:desktop:run`                          |
+| Web Wasm | `./gradlew :app:web:wasmJsBrowserDevelopmentRun`      |
+| Web JS   | `./gradlew :app:web:jsBrowserDevelopmentRun`          |
+| iOS      | 打开 `app/ios/` 用 Xcode                              |
 
 ---
 
@@ -232,5 +232,5 @@ ChatScreen ─(event)─► ChatViewModel ─► SendMessageUseCase ─► ChatR
 ## 13. 当前差距
 
 - [ ] `:core-ui/components` / `:core-ui/navigation` 尚空
-- [ ] `:shared` 仍同时承载根装配与 feature presentation，后续继续观察是否触发 ADR 0003 的拆分条件
+- [ ] `:app:shared` 仍同时承载根装配与 feature presentation，后续继续观察是否触发 ADR 0003 的拆分条件
 - [ ] `docs/platform/`、`docs/work-items/` 目录尚未建立

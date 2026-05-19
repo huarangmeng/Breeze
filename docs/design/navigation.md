@@ -7,7 +7,7 @@
 当前导航基于 `androidx.navigation:navigation-compose` 的 Compose Multiplatform 版本，分两层：
 
 - `:core-ui/navigation/Destination.kt`：定义共享 destination contract
-- `:shared/navigation/BreezeNavHost.kt`：定义根级 `NavHost` 与顶层导航壳
+- `app/shared/navigation/BreezeNavHost.kt`：定义根级 `NavHost` 与顶层导航壳
 
 当前顶层 destination 为：
 

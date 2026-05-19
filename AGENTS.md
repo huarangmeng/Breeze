@@ -21,21 +21,21 @@
 
 ## 2. 仓库地图
 
-- `shared/`：共享 UI、页面状态、导航装配和主要业务代码
-- `androidApp/`：Android 宿主
-- `desktopApp/`：Desktop JVM 宿主
-- `webApp/`：Web JS / Wasm 宿主
-- `iosApp/`：iOS 宿主
+- `app/shared/`：共享 UI、页面状态、导航装配和主要业务代码
+- `app/android/`：Android 宿主
+- `app/desktop/`：Desktop JVM 宿主
+- `app/web/`：Web JS / Wasm 宿主
+- `app/ios/`：iOS 宿主
 - `img/`：桌面版设计参考图
 - `docs/`：长期文档归档目录
 - `README.md`：项目入口说明
 - `AGENTS.md`：仓库协作规则
 
-`shared/src` 的基本职责：
+`app/shared/src` 的基本职责：
 
 - `commonMain`：共享 UI、状态、主题、业务逻辑
 - `androidMain` / `iosMain` / `jvmMain` / `jsMain` / `wasmJsMain`：共享库所需的平台差异代码
-- 平台入口代码放在 `androidApp` / `desktopApp` / `webApp` / `iosApp`
+- 平台入口代码放在 `app/android` / `app/desktop` / `app/web` / `app/ios`
 
 ## 3. 核心规则
 
@@ -123,31 +123,31 @@
 Android:
 
 ```bash
-./gradlew :androidApp:assembleDebug
+./gradlew :app:android:assembleDebug
 ```
 
 Desktop:
 
 ```bash
-./gradlew :desktopApp:run
+./gradlew :app:desktop:run
 ```
 
 Web Wasm:
 
 ```bash
-./gradlew :webApp:wasmJsBrowserDevelopmentRun
+./gradlew :app:web:wasmJsBrowserDevelopmentRun
 ```
 
 Web JS:
 
 ```bash
-./gradlew :webApp:jsBrowserDevelopmentRun
+./gradlew :app:web:jsBrowserDevelopmentRun
 ```
 
 iOS：
 
 - 从 IDE 使用对应运行配置
-- 或打开 `iosApp/` 用 Xcode 运行
+- 或打开 `app/ios/` 用 Xcode 运行
 
 如果只改了文档，不要为了形式主义去跑整套耗时构建。
 

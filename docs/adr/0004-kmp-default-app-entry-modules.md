@@ -4,7 +4,7 @@
 
 JetBrains updated the default Kotlin Multiplatform project structure in May 2026. The new default separates shared KMP library code from runnable app entry points. This also matches the AGP 9 direction: Android application entry points should live in an Android app module, not inside the shared KMP library module.
 
-Before this ADR, Breeze had already extracted `:androidApp`, but the old `:composeApp` module still carried three responsibilities:
+Before this ADR, Breeze had already extracted an Android app entry module, but the old `:composeApp` module still carried three responsibilities:
 
 - shared Compose UI and presentation code
 - Desktop JVM executable and packaging
@@ -12,24 +12,24 @@ Before this ADR, Breeze had already extracted `:androidApp`, but the old `:compo
 
 ## Decision
 
-Rename the old shared `:composeApp` module to `:shared`, then extract the remaining runnable entry points:
+Rename the old shared `:composeApp` module to `:app:shared`, then extract the remaining runnable entry points under `app/`:
 
-- `:androidApp` depends on `:shared`
-- `:desktopApp` owns the Compose Desktop `main()` and native distribution configuration
-- `:webApp` owns JS / Wasm executable targets, `index.html`, styles, and SQLite worker resources
-- `:iosApp` continues to consume the static framework from `:shared`; the framework binary name remains `ComposeApp` to avoid Swift-side import churn
+- `:app:android` depends on `:app:shared`
+- `:app:desktop` owns the Compose Desktop `main()` and native distribution configuration
+- `:app:web` owns JS / Wasm executable targets, `index.html`, styles, and SQLite worker resources
+- `:app:ios` continues to consume the static framework from `:app:shared`; the framework binary name remains `ComposeApp` to avoid Swift-side import churn
 
-The `:shared` module remains the shared Compose Multiplatform library for root `App()`, navigation, DI, ViewModels, Routes, and screens.
+The `:app:shared` module remains the shared Compose Multiplatform library for root `App()`, navigation, DI, ViewModels, Routes, and screens.
 
 ## Consequences
 
 Positive:
 
 - App entry points now have single-purpose Gradle modules.
-- `:shared` no longer contains desktop packaging or Web executable configuration.
+- `:app:shared` no longer contains desktop packaging or Web executable configuration.
 - The module graph matches the current KMP default structure and leaves a clearer path for future feature modularization.
 
 Tradeoffs:
 
-- Existing run configurations must point to `:desktopApp` and `:webApp`.
-- Docs and scripts that referenced `:composeApp` need to move to `:shared`, `:desktopApp`, or `:webApp` depending on intent.
+- Existing run configurations must point to `:app:desktop` and `:app:web`.
+- Docs and scripts that referenced `:composeApp` need to move to `:app:shared`, `:app:desktop`, or `:app:web` depending on intent.
