@@ -36,6 +36,10 @@ data object ModelSettings : TopLevelDestination {
     override val title: String = "Models"
 }
 
+data object SettingsHub : Destination {
+    override val routePattern: String = "settings-hub"
+}
+
 data class ChatThread(
     val conversationId: String,
 ) : Destination {

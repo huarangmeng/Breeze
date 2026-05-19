@@ -21,19 +21,21 @@
 
 ## 2. 仓库地图
 
-- `composeApp/`：共享 UI 和主要业务代码
+- `shared/`：共享 UI、页面状态、导航装配和主要业务代码
 - `androidApp/`：Android 宿主
+- `desktopApp/`：Desktop JVM 宿主
+- `webApp/`：Web JS / Wasm 宿主
 - `iosApp/`：iOS 宿主
 - `img/`：桌面版设计参考图
 - `docs/`：长期文档归档目录
 - `README.md`：项目入口说明
 - `AGENTS.md`：仓库协作规则
 
-`composeApp/src` 的基本职责：
+`shared/src` 的基本职责：
 
 - `commonMain`：共享 UI、状态、主题、业务逻辑
-- `androidMain` / `iosMain` / `jvmMain` / `jsMain` / `wasmJsMain`：平台差异代码
-- `webMain`：Web 宿主资源
+- `androidMain` / `iosMain` / `jvmMain` / `jsMain` / `wasmJsMain`：共享库所需的平台差异代码
+- 平台入口代码放在 `androidApp` / `desktopApp` / `webApp` / `iosApp`
 
 ## 3. 核心规则
 
@@ -127,19 +129,19 @@ Android:
 Desktop:
 
 ```bash
-./gradlew :composeApp:run
+./gradlew :desktopApp:run
 ```
 
 Web Wasm:
 
 ```bash
-./gradlew :composeApp:wasmJsBrowserDevelopmentRun
+./gradlew :webApp:wasmJsBrowserDevelopmentRun
 ```
 
 Web JS:
 
 ```bash
-./gradlew :composeApp:jsBrowserDevelopmentRun
+./gradlew :webApp:jsBrowserDevelopmentRun
 ```
 
 iOS：

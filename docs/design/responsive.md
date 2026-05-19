@@ -57,7 +57,7 @@
 
 ## 4. 当前根布局
 
-当前由 `composeApp/navigation/BreezeNavHost.kt` 统一消费 `LocalWindowInfo`，根布局规则为：
+当前由 `shared/navigation/BreezeNavHost.kt` 统一消费 `LocalWindowInfo`，根布局规则为：
 
 - `Compact` / `Medium`：单栏导航壳，顶部横向 destination bar + 当前 feature 内容
 - `Expanded`：`ListDetail` 根骨架，左侧 feature 列表 + 右侧当前详情页
@@ -72,7 +72,7 @@
 - Android：`MainActivity`
 - iOS：`MainViewController`
 - Desktop：`main.kt`
-- Web JS：`webMain/main.kt`
+- Web JS / Wasm：`webApp/src/webMain/main.kt`
 
 窗口尺寸不再由每个宿主单独手算，而是统一由 Compose + Material3 Adaptive 在共享层感知，再映射进 `Breeze WindowInfo`。
 

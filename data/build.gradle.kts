@@ -73,7 +73,7 @@ kotlin {
         }
         jsMain.dependencies {
             implementation(libs.ktor.client.js)
-            // Web 端额外需要 WebWorkerSQLiteDriver，具体 Worker 由 composeApp 的 web 入口提供。
+            // Web 端额外需要 WebWorkerSQLiteDriver，具体 Worker 由 webApp 入口提供。
             implementation(libs.sqlite.web)
         }
         wasmJsMain.dependencies {

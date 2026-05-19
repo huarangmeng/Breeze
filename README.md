@@ -74,21 +74,28 @@
 
 ## 模块结构
 
-### `composeApp`
+### `shared`
 
-共享 Compose Multiplatform 应用模块，承载绝大多数跨端 UI 和共享逻辑。
+共享 Compose Multiplatform 库模块，承载跨端 UI、页面状态、导航装配和共享逻辑。
 
-- [`composeApp/src/commonMain`](./composeApp/src/commonMain)：所有平台共享的 UI、状态、主题和业务代码
-- [`composeApp/src/androidMain`](./composeApp/src/androidMain)：Android 专属实现
-- [`composeApp/src/iosMain`](./composeApp/src/iosMain)：iOS 专属实现
-- [`composeApp/src/jvmMain`](./composeApp/src/jvmMain)：桌面端实现
-- [`composeApp/src/jsMain`](./composeApp/src/jsMain)：JS Web 目标
-- [`composeApp/src/wasmJsMain`](./composeApp/src/wasmJsMain)：Wasm Web 目标
-- [`composeApp/src/webMain`](./composeApp/src/webMain)：Web 入口资源与页面宿主
+- [`shared/src/commonMain`](./shared/src/commonMain)：所有平台共享的 UI、状态、主题和业务代码
+- [`shared/src/androidMain`](./shared/src/androidMain)：Android actual 实现
+- [`shared/src/iosMain`](./shared/src/iosMain)：iOS actual 实现
+- [`shared/src/jvmMain`](./shared/src/jvmMain)：Desktop JVM actual 实现
+- [`shared/src/jsMain`](./shared/src/jsMain)：JS Web actual 实现
+- [`shared/src/wasmJsMain`](./shared/src/wasmJsMain)：Wasm Web actual 实现
 
 ### `androidApp`
 
 Android 应用入口模块。
+
+### `desktopApp`
+
+Desktop JVM 应用入口模块，负责 Compose Desktop window、菜单栏/窗口级配置和 native distribution 打包。
+
+### `webApp`
+
+Web 应用入口模块，负责 JS / Wasm executable target、`index.html` 和 Web Worker 资源。
 
 ### `iosApp`
 
@@ -151,13 +158,13 @@ Windows:
 macOS / Linux:
 
 ```bash
-./gradlew :composeApp:run
+./gradlew :desktopApp:run
 ```
 
 Windows:
 
 ```bash
-.\gradlew.bat :composeApp:run
+.\gradlew.bat :desktopApp:run
 ```
 
 ### Web (Wasm)
@@ -165,13 +172,13 @@ Windows:
 macOS / Linux:
 
 ```bash
-./gradlew :composeApp:wasmJsBrowserDevelopmentRun
+./gradlew :webApp:wasmJsBrowserDevelopmentRun
 ```
 
 Windows:
 
 ```bash
-.\gradlew.bat :composeApp:wasmJsBrowserDevelopmentRun
+.\gradlew.bat :webApp:wasmJsBrowserDevelopmentRun
 ```
 
 ### Web (JS)
@@ -179,13 +186,13 @@ Windows:
 macOS / Linux:
 
 ```bash
-./gradlew :composeApp:jsBrowserDevelopmentRun
+./gradlew :webApp:jsBrowserDevelopmentRun
 ```
 
 Windows:
 
 ```bash
-.\gradlew.bat :composeApp:jsBrowserDevelopmentRun
+.\gradlew.bat :webApp:jsBrowserDevelopmentRun
 ```
 
 ### iOS

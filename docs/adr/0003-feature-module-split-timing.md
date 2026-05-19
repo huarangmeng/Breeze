@@ -2,7 +2,7 @@
 
 ## Context
 
-`Breeze` 已经在 `:composeApp` 内落地了 4 个真实 feature 页面：
+`Breeze` 已经在 `:shared` 内落地了 4 个真实 feature 页面：
 
 - `chat`
 - `history`
@@ -14,9 +14,9 @@
 - `:core-ui` 承载主题、响应式和导航基础类型
 - `:domain` 承载模型与 repository 接口
 - `:data` 承载 repository 实现、Settings、网络与存储
-- `:composeApp` 负责根 `App()`、`NavHost`、Koin 与 ViewModel/Route 装配
+- `:shared` 负责根 `App()`、`NavHost`、Koin 与 ViewModel/Route 装配
 
-当前 feature 代码虽然在目录上已经收敛到 `composeApp/src/commonMain/kotlin/com/hrm/breeze/ui/screens/*`，但它们仍然共享以下装配条件：
+当前 feature 代码虽然在目录上已经收敛到 `shared/src/commonMain/kotlin/com/hrm/breeze/ui/screens/*`，但它们仍然共享以下装配条件：
 
 - 同一套 `Koin` presentation module
 - 同一个 `BreezeNavHost`
@@ -29,16 +29,16 @@
 
 当前阶段 **暂不拆** `:feature:*` 模块，继续保持：
 
-- feature 目录级拆分留在 `:composeApp`
+- feature 目录级拆分留在 `:shared`
 - `Route + ViewModel + Screen` 作为 feature 边界
 - `Destination` 保留在 `:core-ui/navigation`
-- 根导航与根布局继续由 `:composeApp/navigation/BreezeNavHost.kt` 统一装配
+- 根导航与根布局继续由 `:shared/navigation/BreezeNavHost.kt` 统一装配
 
 只有在出现以下任一信号时，再启动 feature 模块拆分：
 
 1. 某个 feature 出现独立的测试、假实现或预览依赖，开始拖累其他 feature 编译与装配
 2. 某个 feature 需要独立资源、独立导航子图或明显不同的依赖集合
-3. `composeApp` 的 presentation 层开始出现大面积跨 feature 回调耦合，单文件装配明显失控
+3. `shared` 的 presentation 层开始出现大面积跨 feature 回调耦合，单文件装配明显失控
 4. 团队需要多人并行开发同一批 feature，模块边界能显著降低冲突面
 
 ## Consequences
@@ -51,11 +51,10 @@
 
 负面：
 
-- `:composeApp` 仍然同时承担根装配与 feature presentation 代码
+- `:shared` 仍然同时承担根装配与 feature presentation 代码
 - 未来如果 feature 继续膨胀，再拆模块时仍需要一次迁移成本
 
 后续动作：
 
 - 在 `M5` 继续观察 provider、settings、history 等功能增长是否会推高拆模块收益
 - 如果触发上述信号，再新增后续 ADR 记录具体模块切分方案与依赖方向
-
