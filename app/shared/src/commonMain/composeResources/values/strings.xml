@@ -74,6 +74,7 @@
     <string name="preview_responsive_hint">Suggestions collapse to one column on Compact and stay within two columns on Expanded.</string>
     <string name="composer_placeholder">Message or type / to choose a skill</string>
     <string name="quick">Quick</string>
+    <string name="reasoning_mode">Reasoning</string>
     <string name="writing">Writing</string>
     <string name="code">Code</string>
     <string name="sending">Sending</string>

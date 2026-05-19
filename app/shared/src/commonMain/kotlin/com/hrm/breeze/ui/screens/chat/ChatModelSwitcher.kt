@@ -5,11 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,22 +54,29 @@ internal fun CompactChatHeader(
         color = scheme.surface.copy(alpha = 0f),
         shape = shapes.pill,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = spacing.xs, vertical = spacing.xs),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            HeaderActionButton(label = "⚙", onClick = onOpenSettings)
-            ModelSwitcher(
-                state = state,
-                onModelSelected = onModelSelected,
-                onOpenModelSettings = onOpenModelSettings,
-                modifier = Modifier.widthIn(max = 180.dp),
-                compact = true,
-            )
-            HeaderActionButton(label = "+", onClick = onNewConversation)
+            val switcherMaxWidth = (maxWidth - 42.dp - 42.dp - spacing.xs - spacing.xs - spacing.xs - spacing.xs)
+                .coerceAtLeast(116.dp)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = spacing.xs, vertical = spacing.xs),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                HeaderActionButton(label = "⚙", onClick = onOpenSettings)
+                ModelSwitcher(
+                    state = state,
+                    onModelSelected = onModelSelected,
+                    onOpenModelSettings = onOpenModelSettings,
+                    modifier = Modifier.widthIn(max = switcherMaxWidth),
+                    compact = true,
+                )
+                HeaderActionButton(label = "+", onClick = onNewConversation)
+            }
         }
     }
 }
@@ -124,8 +133,8 @@ internal fun ModelSwitcher(
     Box(modifier = modifier) {
         Surface(
             modifier = Modifier
-                .widthIn(min = 116.dp, max = 176.dp)
-                .height(34.dp)
+                .widthIn(min = 116.dp)
+                .heightIn(min = 34.dp)
                 .clip(shapes.pill)
                 .clickable { expanded = true },
             color = scheme.surface.copy(alpha = 0.86f),
@@ -151,7 +160,6 @@ internal fun ModelSwitcher(
                 if (compact) {
                     Text(
                         text = selectedTitle,
-                        modifier = Modifier.widthIn(max = 126.dp),
                         style = typography.labelLarge,
                         color = scheme.onSurface,
                         maxLines = 1,

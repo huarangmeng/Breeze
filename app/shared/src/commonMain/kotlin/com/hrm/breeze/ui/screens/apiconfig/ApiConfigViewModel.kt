@@ -4,11 +4,9 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hrm.breeze.data.llm.LlmMessage
-import com.hrm.breeze.data.network.BREEZE_MOCK_ECHO_ENDPOINT
 import com.hrm.breeze.data.network.OpenAiCompatibleApiException
 import com.hrm.breeze.data.network.OpenAiCompatibleChatApi
 import com.hrm.breeze.data.settings.BreezeSettings
-import com.hrm.breeze.data.settings.BreezeSettingsSnapshot
 import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.generated.resources.*
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
@@ -38,73 +37,37 @@ class ApiConfigViewModel(
     private val settings: BreezeSettings,
     private val chatApi: OpenAiCompatibleChatApi,
 ) : ViewModel() {
-    private val draftEndpoint = MutableStateFlow<String?>(null)
-    private val draftApiToken = MutableStateFlow<String?>(null)
-    private val draftModelId = MutableStateFlow<String?>(null)
+    private val draftEndpoint = MutableStateFlow("")
+    private val draftApiToken = MutableStateFlow("")
+    private val draftModelId = MutableStateFlow("")
     private val isSaving = MutableStateFlow(false)
     private val isTesting = MutableStateFlow(false)
     private val statusMessage = MutableStateFlow<StringResource?>(null)
     private val statusDetail = MutableStateFlow<String?>(null)
     private val _closePageEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    private data class ApiConfigDraftState(
-        val endpoint: String?,
-        val apiToken: String?,
-        val modelId: String?,
+    private data class DraftFormState(
+        val endpoint: String,
+        val apiToken: String,
+        val modelId: String,
         val isSaving: Boolean,
         val isTesting: Boolean,
     )
 
-    private val settingsSnapshot =
-        settings.snapshot.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
-            initialValue = BreezeSettingsSnapshot(),
-        )
-
-    private val draftState =
+    private val formState =
         combine(
             draftEndpoint,
             draftApiToken,
             draftModelId,
             isSaving,
             isTesting,
-        ) { endpointDraft, apiTokenDraft, modelIdDraft, isSaving, isTesting ->
-            ApiConfigDraftState(
-                endpoint = endpointDraft,
-                apiToken = apiTokenDraft,
-                modelId = modelIdDraft,
-                isSaving = isSaving,
-                isTesting = isTesting,
-            )
-        }
-
-    private val formState =
-        combine(
-            settingsSnapshot,
-            draftState,
-        ) { snapshot, draft ->
-            val endpoint = draft.endpoint ?: snapshot.remoteEndpoint()
-            val apiToken = draft.apiToken ?: snapshot.remoteApiToken()
-            val modelId = draft.modelId ?: snapshot.remoteModelId()
-            val isFormComplete =
-                endpoint.trim().isNotBlank() &&
-                    apiToken.trim().isNotBlank() &&
-                    modelId.trim().isNotBlank()
-            val hasUnsavedChanges =
-                snapshot.currentProviderId != LlmProviderId.OpenAI ||
-                    endpoint != snapshot.remoteEndpoint() ||
-                    apiToken != snapshot.remoteApiToken() ||
-                    modelId != snapshot.remoteModelId()
-
-            ApiConfigUiState(
+        ) { endpoint, apiToken, modelId, isSaving, isTesting ->
+            DraftFormState(
                 endpoint = endpoint,
                 apiToken = apiToken,
                 modelId = modelId,
-                isSaving = draft.isSaving,
-                isTesting = draft.isTesting,
-                isFormComplete = isFormComplete,
-                hasUnsavedChanges = hasUnsavedChanges,
+                isSaving = isSaving,
+                isTesting = isTesting,
             )
         }
 
@@ -114,16 +77,29 @@ class ApiConfigViewModel(
             statusMessage,
             statusDetail,
         ) { formState, statusMessage, statusDetail ->
-            formState.copy(statusMessage = statusMessage, statusDetail = statusDetail)
+            val isFormComplete =
+                formState.endpoint.trim().isNotBlank() &&
+                    formState.apiToken.trim().isNotBlank() &&
+                    formState.modelId.trim().isNotBlank()
+
+            ApiConfigUiState(
+                endpoint = formState.endpoint,
+                apiToken = formState.apiToken,
+                modelId = formState.modelId,
+                isSaving = formState.isSaving,
+                isTesting = formState.isTesting,
+                isFormComplete = isFormComplete,
+                hasUnsavedChanges =
+                    formState.endpoint.isNotBlank() ||
+                        formState.apiToken.isNotBlank() ||
+                        formState.modelId.isNotBlank(),
+                statusMessage = statusMessage,
+                statusDetail = statusDetail,
+            )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
-            initialValue =
-                ApiConfigUiState(
-                    endpoint = BreezeSettingsSnapshot().remoteEndpoint(),
-                    apiToken = BreezeSettingsSnapshot().remoteApiToken(),
-                    modelId = BreezeSettingsSnapshot().remoteModelId(),
-                ),
+            initialValue = ApiConfigUiState(),
         )
 
     val closePageEvent: SharedFlow<Unit> = _closePageEvent
@@ -147,9 +123,9 @@ class ApiConfigViewModel(
     }
 
     fun onReset() {
-        draftEndpoint.value = null
-        draftApiToken.value = null
-        draftModelId.value = null
+        draftEndpoint.value = ""
+        draftApiToken.value = ""
+        draftModelId.value = ""
         statusMessage.value = Res.string.status_api_reset
         statusDetail.value = null
     }
@@ -171,9 +147,9 @@ class ApiConfigViewModel(
                 settings.updateApiToken(currentState.apiToken.trim().ifBlank { null })
                 settings.updateCurrentModelId(currentState.modelId.trim())
             }.onSuccess {
-                draftEndpoint.value = null
-                draftApiToken.value = null
-                draftModelId.value = null
+                draftEndpoint.value = ""
+                draftApiToken.value = ""
+                draftModelId.value = ""
                 statusMessage.value = Res.string.status_api_saved
                 statusDetail.value = null
                 _closePageEvent.tryEmit(Unit)
@@ -198,12 +174,13 @@ class ApiConfigViewModel(
             statusDetail.value = null
 
             runCatching {
-                chatApi.completeChat(
+                chatApi.streamChat(
                     endpoint = currentState.endpoint.trim(),
                     apiToken = currentState.apiToken.trim().ifBlank { null },
                     modelId = currentState.modelId.trim(),
                     messages = listOf(LlmMessage(role = LlmMessage.Role.User, content = "ping")),
-                )
+                    reasoningEnabled = settings.getReasoningEnabled(),
+                ).firstOrNull() ?: error("OpenAI-compatible stream did not emit any content")
             }.onSuccess {
                 statusMessage.value = Res.string.status_test_connection_success
                 statusDetail.value = null
@@ -219,24 +196,3 @@ class ApiConfigViewModel(
         }
     }
 }
-
-private fun BreezeSettingsSnapshot.remoteEndpoint(): String =
-    if (currentProviderId == LlmProviderId.OpenAI && echoEndpoint != BREEZE_MOCK_ECHO_ENDPOINT) {
-        echoEndpoint
-    } else {
-        ""
-    }
-
-private fun BreezeSettingsSnapshot.remoteApiToken(): String =
-    if (currentProviderId == LlmProviderId.OpenAI) {
-        apiToken.orEmpty()
-    } else {
-        ""
-    }
-
-private fun BreezeSettingsSnapshot.remoteModelId(): String =
-    if (currentProviderId == LlmProviderId.OpenAI && currentModelId != "breeze-echo") {
-        currentModelId
-    } else {
-        ""
-    }

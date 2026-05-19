@@ -5,6 +5,8 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.hrm.breeze.core.coroutines.AppDispatchers
+import com.hrm.breeze.data.llm.LlmCompletionRequest
+import com.hrm.breeze.data.llm.LlmProvider
 import com.hrm.breeze.data.llm.LlmProviderRegistry
 import com.hrm.breeze.data.llm.LocalProvider
 import com.hrm.breeze.data.settings.BreezeSettings
@@ -13,6 +15,7 @@ import com.hrm.breeze.data.storage.createPlatformDatabaseBuilder
 import com.hrm.breeze.domain.model.LlmProviderId
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -87,6 +90,51 @@ class ChatRepositoryImplJvmTest {
             database.close()
         }
     }
+
+    @Test
+    fun sendMessagePersistsAssistantDraftAsStreamArrives() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dispatchers = TestAppDispatchers(dispatcher)
+        val tempDirectory = Files.createTempDirectory("breeze-chat-repository-stream-test")
+        val database = createDatabase(tempDirectory.toString(), dispatchers)
+        val settings = createSettings(tempDirectory.toString())
+        val providerRegistry = LlmProviderRegistry(listOf(StreamingLocalProvider()))
+        val clock =
+            SequenceClock(
+                instants =
+                    listOf(
+                        Instant.fromEpochMilliseconds(1_710_100_000_000),
+                        Instant.fromEpochMilliseconds(1_710_100_000_500),
+                    )
+            )
+        val repository =
+            ChatRepositoryImpl(
+                database = database,
+                llmProviderRegistry = providerRegistry,
+                settings = settings,
+                dispatchers = dispatchers,
+                clock = clock,
+            )
+
+        settings.updateCurrentProviderId(LlmProviderId.Local)
+        settings.updateCurrentModelId("mock-model")
+        advanceUntilIdle()
+
+        try {
+            val emitted = repository.sendMessage(conversationId = "conversation-stream", text = "hello breeze").toList()
+            advanceUntilIdle()
+
+            val messages = repository.observeMessages("conversation-stream").first()
+
+            assertEquals(5, emitted.size)
+            assertEquals("Breeze ", emitted[0].content)
+            assertEquals("Breeze local(mock-model): hello breeze", emitted.last().content)
+            assertEquals(2, messages.size)
+            assertEquals("Breeze local(mock-model): hello breeze", messages.last().content)
+        } finally {
+            database.close()
+        }
+    }
 }
 
 private fun createDatabase(
@@ -126,4 +174,19 @@ private class SequenceClock(
         index += 1
         return current
     }
+}
+
+private class StreamingLocalProvider : LlmProvider {
+    override val id: LlmProviderId = LlmProviderId.Local
+
+    override suspend fun complete(request: LlmCompletionRequest): String =
+        error("StreamingLocalProvider.complete should not be used in this test")
+
+    override fun stream(request: LlmCompletionRequest) = flowOf(
+        "Breeze ",
+        "local(",
+        request.model.id,
+        "): ",
+        request.messages.last().content,
+    )
 }

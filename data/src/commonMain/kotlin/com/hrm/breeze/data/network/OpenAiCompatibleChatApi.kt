@@ -2,14 +2,17 @@ package com.hrm.breeze.data.network
 
 import com.hrm.breeze.data.llm.LlmMessage
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
-import kotlinx.serialization.SerialName
+import io.ktor.utils.io.readUTF8Line
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.contentOrNull
@@ -17,31 +20,36 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 interface OpenAiCompatibleChatApi {
-    suspend fun completeChat(
+    fun streamChat(
         endpoint: String,
         apiToken: String?,
         modelId: String,
         messages: List<LlmMessage>,
-    ): String
+        reasoningEnabled: Boolean = false,
+    ): Flow<String>
 }
 
 class KtorOpenAiCompatibleChatApi(
     private val httpClient: HttpClient,
 ) : OpenAiCompatibleChatApi {
-    override suspend fun completeChat(
+    override fun streamChat(
         endpoint: String,
         apiToken: String?,
         modelId: String,
         messages: List<LlmMessage>,
-    ): String {
+        reasoningEnabled: Boolean,
+    ): Flow<String> = flow {
         val response = httpClient.post(endpoint.toChatCompletionsUrl()) {
             if (!apiToken.isNullOrBlank()) {
                 header(HttpHeaders.Authorization, "Bearer $apiToken")
             }
+            header(HttpHeaders.Accept, ContentType.Text.EventStream.toString())
             setBody(
                 OpenAiCompatibleChatRequest(
                     model = modelId,
                     messages = messages.map(LlmMessage::toNetwork),
+                    stream = true,
+                    reasoning = if (reasoningEnabled) OpenAiCompatibleReasoningRequest(enabled = true) else null,
                 )
             )
         }
@@ -55,10 +63,29 @@ class KtorOpenAiCompatibleChatApi(
             )
         }
 
-        val responseBody = response.body<OpenAiCompatibleChatResponse>()
+        val channel = response.bodyAsChannel()
+        val eventPayload = mutableListOf<String>()
 
-        return responseBody.choices.firstOrNull()?.message?.content?.takeIf(String::isNotBlank)
-            ?: error("OpenAI-compatible response did not contain a text message")
+        while (true) {
+            val line = channel.readUTF8Line() ?: break
+            when {
+                line.startsWith("data:") -> {
+                    val data = line.removePrefix("data:").trim()
+                    if (data == "[DONE]") {
+                        break
+                    }
+                    if (data.isNotEmpty()) {
+                        eventPayload += data
+                    }
+                }
+
+                line.isBlank() -> {
+                    eventPayload.consumeAsDeltaOrNull()?.let { emit(it) }
+                }
+            }
+        }
+
+        eventPayload.consumeAsDeltaOrNull()?.let { emit(it) }
     }
 }
 
@@ -93,6 +120,21 @@ private fun JsonElement?.extractNestedMessage(): String? {
         ?: obj["metadata"]?.jsonObject?.get("raw")?.jsonPrimitive?.contentOrNull
 }
 
+private fun MutableList<String>.consumeAsDeltaOrNull(): String? {
+    if (isEmpty()) return null
+    val payload = joinToString(separator = "\n")
+    clear()
+    return payload.extractStreamDeltaOrNull()
+}
+
+private fun String.extractStreamDeltaOrNull(): String? =
+    runCatching {
+        BreezeJson.decodeFromString<OpenAiCompatibleChatStreamResponse>(this)
+            .choices
+            .joinToString(separator = "") { it.delta?.content.orEmpty() }
+            .takeIf(String::isNotEmpty)
+    }.getOrNull()
+
 class OpenAiCompatibleApiException(
     val statusCode: Int,
     val statusDescription: String,
@@ -117,6 +159,8 @@ private fun buildMessage(
 private data class OpenAiCompatibleChatRequest(
     val model: String,
     val messages: List<OpenAiCompatibleMessage>,
+    val stream: Boolean = false,
+    val reasoning: OpenAiCompatibleReasoningRequest? = null,
 )
 
 @Serializable
@@ -126,17 +170,21 @@ private data class OpenAiCompatibleMessage(
 )
 
 @Serializable
-private data class OpenAiCompatibleChatResponse(
-    val choices: List<OpenAiCompatibleChoice> = emptyList(),
+private data class OpenAiCompatibleReasoningRequest(
+    val enabled: Boolean,
 )
 
 @Serializable
-private data class OpenAiCompatibleChoice(
-    val message: OpenAiCompatibleResponseMessage? = null,
+private data class OpenAiCompatibleChatStreamResponse(
+    val choices: List<OpenAiCompatibleStreamChoice> = emptyList(),
 )
 
 @Serializable
-private data class OpenAiCompatibleResponseMessage(
+private data class OpenAiCompatibleStreamChoice(
+    val delta: OpenAiCompatibleStreamDelta? = null,
+)
+
+@Serializable
+private data class OpenAiCompatibleStreamDelta(
     val content: String? = null,
-    @SerialName("role") val role: String? = null,
 )

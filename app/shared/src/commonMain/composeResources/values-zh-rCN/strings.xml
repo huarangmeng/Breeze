@@ -74,6 +74,7 @@
     <string name="preview_responsive_hint">Compact 下提示会自动折为单列，Expanded 下保持两列以内。</string>
     <string name="composer_placeholder">发消息或输入 / 选择技能</string>
     <string name="quick">快速</string>
+    <string name="reasoning_mode">推理模式</string>
     <string name="writing">写作</string>
     <string name="code">代码</string>
     <string name="sending">发送中</string>

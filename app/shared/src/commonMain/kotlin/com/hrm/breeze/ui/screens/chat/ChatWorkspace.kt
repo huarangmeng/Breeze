@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +45,7 @@ import com.hrm.breeze.generated.resources.new_chat
 import com.hrm.breeze.generated.resources.preview_responsive_hint
 import com.hrm.breeze.generated.resources.preview_welcome_prompt
 import com.hrm.breeze.generated.resources.quick
+import com.hrm.breeze.generated.resources.reasoning_mode
 import com.hrm.breeze.generated.resources.send
 import com.hrm.breeze.generated.resources.sending
 import com.hrm.breeze.generated.resources.welcome_prompt
@@ -60,6 +62,7 @@ import org.jetbrains.compose.resources.stringResource
 
 internal data class ChatMainPanelActions(
     val onDraftChange: (String) -> Unit,
+    val onReasoningEnabledChange: (Boolean) -> Unit,
     val onSendMessage: () -> Unit,
     val onNewConversation: () -> Unit,
     val onModelSelected: (String) -> Unit,
@@ -177,7 +180,6 @@ private fun DesktopWorkspaceHeader(
             state = state,
             onModelSelected = actions.onModelSelected,
             onOpenModelSettings = actions.onOpenModelSettings,
-            modifier = Modifier.widthIn(max = 180.dp),
             compact = true,
         )
     }
@@ -201,6 +203,7 @@ private fun MessageStage(
     previewMode: Boolean,
 ) {
     val spacing = BreezeTheme.spacing
+    val scrollState = rememberScrollState()
 
     if (state.messages.isEmpty()) {
         WelcomePanel(
@@ -211,10 +214,14 @@ private fun MessageStage(
         return
     }
 
+    LaunchedEffect(state.activeConversationId, state.messages.size) {
+        scrollState.scrollTo(scrollState.maxValue)
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         state.messages.forEach { message ->
@@ -366,6 +373,17 @@ private fun ComposerBar(
                     ) {
                         TextButton(onClick = actions.onNewConversation, shape = shapes.pill) {
                             Text(stringResource(Res.string.quick))
+                        }
+                        TextButton(
+                            onClick = { actions.onReasoningEnabledChange(!state.settings.reasoningEnabled) },
+                            enabled = !state.isSending,
+                            shape = shapes.pill,
+                            colors = ButtonDefaults.textButtonColors(
+                                containerColor = if (state.settings.reasoningEnabled) scheme.primary.copy(alpha = 0.14f) else scheme.surface,
+                                contentColor = if (state.settings.reasoningEnabled) scheme.primary else extra.textSecondary,
+                            ),
+                        ) {
+                            Text(stringResource(Res.string.reasoning_mode))
                         }
                         TextButton(onClick = {}, shape = shapes.pill) {
                             Text(stringResource(Res.string.writing))

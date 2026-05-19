@@ -24,6 +24,7 @@ fun ChatRoute(
         modifier = modifier,
         state = uiState,
         onDraftChange = viewModel::onDraftChange,
+        onReasoningEnabledChange = viewModel::onReasoningEnabledChange,
         onConversationSelected = viewModel::onConversationSelected,
         onNewConversation = viewModel::onNewConversation,
         onModelSelected = viewModel::onModelSelected,

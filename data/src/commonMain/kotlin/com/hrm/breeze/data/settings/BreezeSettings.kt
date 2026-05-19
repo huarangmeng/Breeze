@@ -3,6 +3,7 @@ package com.hrm.breeze.data.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.hrm.breeze.domain.model.LlmProviderId
@@ -16,18 +17,21 @@ private const val DEFAULT_ECHO_ENDPOINT = ""
 private const val DEFAULT_MODEL_ID = ""
 private const val DEFAULT_PROVIDER_ID = "local"
 private const val DEFAULT_APP_LANGUAGE_TAG = "system"
+private const val DEFAULT_REASONING_ENABLED = false
 
 internal const val KEY_ECHO_ENDPOINT = "network.echo_endpoint"
 internal const val KEY_PROVIDER_ID = "network.provider_id"
 internal const val KEY_MODEL_ID = "model.current_id"
 internal const val KEY_API_TOKEN = "network.api_token"
 internal const val KEY_APP_LANGUAGE_TAG = "app.language_tag"
+internal const val KEY_REASONING_ENABLED = "model.reasoning_enabled"
 
 private val echoEndpointKey = stringPreferencesKey(KEY_ECHO_ENDPOINT)
 private val providerIdKey = stringPreferencesKey(KEY_PROVIDER_ID)
 private val modelIdKey = stringPreferencesKey(KEY_MODEL_ID)
 private val apiTokenKey = stringPreferencesKey(KEY_API_TOKEN)
 private val appLanguageTagKey = stringPreferencesKey(KEY_APP_LANGUAGE_TAG)
+private val reasoningEnabledKey = booleanPreferencesKey(KEY_REASONING_ENABLED)
 
 data class BreezeSettingsSnapshot(
     val echoEndpoint: String = DEFAULT_ECHO_ENDPOINT,
@@ -35,6 +39,7 @@ data class BreezeSettingsSnapshot(
     val currentModelId: String = DEFAULT_MODEL_ID,
     val apiToken: String? = null,
     val appLanguageTag: String = DEFAULT_APP_LANGUAGE_TAG,
+    val reasoningEnabled: Boolean = DEFAULT_REASONING_ENABLED,
 )
 
 class BreezeSettings(
@@ -84,6 +89,14 @@ class BreezeSettings(
             preferences[appLanguageTagKey] = value.ifBlank { DEFAULT_APP_LANGUAGE_TAG }
         }
     }
+
+    suspend fun getReasoningEnabled(): Boolean = snapshot.first().reasoningEnabled
+
+    suspend fun updateReasoningEnabled(value: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[reasoningEnabledKey] = value
+        }
+    }
 }
 
 fun createBreezeSettings(
@@ -102,6 +115,7 @@ internal fun Preferences.toBreezeSettingsSnapshot(): BreezeSettingsSnapshot =
         currentModelId = this[modelIdKey] ?: DEFAULT_MODEL_ID,
         apiToken = this[apiTokenKey],
         appLanguageTag = this[appLanguageTagKey] ?: DEFAULT_APP_LANGUAGE_TAG,
+        reasoningEnabled = this[reasoningEnabledKey] ?: DEFAULT_REASONING_ENABLED,
     )
 
 expect fun createPlatformSettingsPath(namespace: String): Path

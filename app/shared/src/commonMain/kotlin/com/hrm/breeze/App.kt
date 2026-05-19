@@ -55,6 +55,7 @@ private fun AppContent(
                         ChatScreen(
                             state = previewChatUiState(),
                             onDraftChange = {},
+                            onReasoningEnabledChange = {},
                             onConversationSelected = {},
                             onNewConversation = {},
                             onModelSelected = {},

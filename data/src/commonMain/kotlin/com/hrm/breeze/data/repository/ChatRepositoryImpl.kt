@@ -43,6 +43,7 @@ class ChatRepositoryImpl(
         val providerId = settings.getCurrentProviderId()
         val modelId = settings.getCurrentModelId()
         val messageDao = database.messageDao()
+        val conversationDao = database.conversationDao()
         val modelProfile =
             ModelProfile(
                 id = modelId,
@@ -50,7 +51,7 @@ class ChatRepositoryImpl(
                 displayName = modelId,
             )
 
-        database.conversationDao().upsertConversation(
+        conversationDao.upsertConversation(
             ConversationEntity(
                 id = conversationId,
                 title = title,
@@ -71,24 +72,48 @@ class ChatRepositoryImpl(
                 userMessage.toLlmMessage()
         messageDao.insertMessage(userMessage)
 
-        val assistantText =
-            llmProviderRegistry.require(modelProfile.providerId).complete(
-                LlmCompletionRequest(
+        val assistantTime = clock.now()
+        val assistantMessageId = "$conversationId-assistant-${assistantTime.toEpochMilliseconds()}"
+        val request =
+            LlmCompletionRequest(
+                conversationId = conversationId,
+                messages = historyMessages,
+                model = modelProfile,
+            )
+        val provider = llmProviderRegistry.require(modelProfile.providerId)
+        var assistantText = ""
+
+        provider.stream(request).collect { delta ->
+            if (delta.isEmpty()) {
+                return@collect
+            }
+
+            assistantText += delta
+            val assistantMessage =
+                MessageEntity(
+                    id = assistantMessageId,
                     conversationId = conversationId,
-                    messages = historyMessages,
-                    model = modelProfile,
+                    role = "assistant",
+                    content = assistantText,
+                    createdAtEpochMillis = assistantTime.toEpochMilliseconds(),
+                )
+            messageDao.insertMessage(assistantMessage)
+            conversationDao.upsertConversation(
+                ConversationEntity(
+                    id = conversationId,
+                    title = title,
+                    modelId = modelId,
+                    updatedAtEpochMillis = assistantTime.toEpochMilliseconds(),
                 )
             )
-        val assistantTime = clock.now()
-        val assistantMessage = MessageEntity(
-            id = "$conversationId-assistant-${assistantTime.toEpochMilliseconds()}",
-            conversationId = conversationId,
-            role = "assistant",
-            content = assistantText,
-            createdAtEpochMillis = assistantTime.toEpochMilliseconds(),
-        )
-        messageDao.insertMessage(assistantMessage)
-        database.conversationDao().upsertConversation(
+            emit(assistantMessage.toDomain())
+        }
+
+        if (assistantText.isEmpty()) {
+            error("LLM stream finished without assistant content")
+        }
+
+        conversationDao.upsertConversation(
             ConversationEntity(
                 id = conversationId,
                 title = title,
@@ -96,8 +121,6 @@ class ChatRepositoryImpl(
                 updatedAtEpochMillis = assistantTime.toEpochMilliseconds(),
             )
         )
-
-        emit(assistantMessage.toDomain())
     }.flowOn(dispatchers.io)
 }
 

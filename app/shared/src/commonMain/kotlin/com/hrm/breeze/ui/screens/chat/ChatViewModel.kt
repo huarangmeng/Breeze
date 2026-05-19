@@ -161,6 +161,16 @@ class ChatViewModel(
         }
     }
 
+    fun onReasoningEnabledChange(enabled: Boolean) {
+        viewModelScope.launch {
+            runCatching {
+                settings.updateReasoningEnabled(enabled)
+            }.onFailure {
+                errorMessage.value = Res.string.status_save_failed
+            }
+        }
+    }
+
     fun onSendMessage() {
         val text = draft.value.trim()
         if (text.isBlank() || isSending.value) {

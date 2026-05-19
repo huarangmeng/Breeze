@@ -28,6 +28,7 @@ import kotlin.time.Clock
 fun ChatScreen(
     state: ChatUiState,
     onDraftChange: (String) -> Unit,
+    onReasoningEnabledChange: (Boolean) -> Unit,
     onConversationSelected: (String) -> Unit,
     onNewConversation: () -> Unit,
     onModelSelected: (String) -> Unit,
@@ -58,6 +59,7 @@ fun ChatScreen(
     ) {
         ChatMainPanelActions(
             onDraftChange = onDraftChange,
+            onReasoningEnabledChange = onReasoningEnabledChange,
             onSendMessage = onSendMessage,
             onNewConversation = onNewConversation,
             onModelSelected = onModelSelected,
