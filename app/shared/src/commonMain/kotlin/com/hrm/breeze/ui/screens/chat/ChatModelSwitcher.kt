@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -35,6 +36,7 @@ import com.hrm.breeze.generated.resources.Res
 import com.hrm.breeze.generated.resources.current_model
 import com.hrm.breeze.generated.resources.model_not_configured
 import com.hrm.breeze.generated.resources.model_settings_menu
+import com.hrm.breeze.generated.resources.on_device_models
 import com.hrm.breeze.ui.theme.BreezeTheme
 import org.jetbrains.compose.resources.stringResource
 
@@ -45,6 +47,7 @@ internal fun CompactChatHeader(
     onNewConversation: () -> Unit,
     onModelSelected: (String) -> Unit,
     onOpenModelSettings: () -> Unit,
+    onOpenOnDeviceModels: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val shapes = BreezeTheme.shapes
@@ -72,6 +75,7 @@ internal fun CompactChatHeader(
                     state = state,
                     onModelSelected = onModelSelected,
                     onOpenModelSettings = onOpenModelSettings,
+                    onOpenOnDeviceModels = onOpenOnDeviceModels,
                     modifier = Modifier.widthIn(max = switcherMaxWidth),
                     compact = true,
                 )
@@ -119,6 +123,7 @@ internal fun ModelSwitcher(
     state: ChatUiState,
     onModelSelected: (String) -> Unit,
     onOpenModelSettings: () -> Unit,
+    onOpenOnDeviceModels: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
@@ -128,7 +133,8 @@ internal fun ModelSwitcher(
     val typography = BreezeTheme.typography
     val extra = BreezeTheme.extendedColors
     var expanded by remember { mutableStateOf(false) }
-    val selectedTitle = state.settings.currentModelId.ifBlank { stringResource(Res.string.model_not_configured) }
+    val activeModelConfig = state.activeModelConfig
+    val selectedTitle = activeModelConfig?.modelId?.ifBlank { null } ?: stringResource(Res.string.model_not_configured)
 
     Box(modifier = modifier) {
         Surface(
@@ -178,7 +184,8 @@ internal fun ModelSwitcher(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "${state.settings.currentProviderId.displayName} / $selectedTitle",
+                            text = activeModelConfig?.let { "${it.providerId.displayName} / ${it.endpoint}" }
+                                ?: stringResource(Res.string.model_not_configured),
                             style = typography.bodySmall,
                             color = extra.textSecondary,
                             maxLines = 1,
@@ -207,19 +214,70 @@ internal fun ModelSwitcher(
                     .padding(spacing.xs),
                 verticalArrangement = Arrangement.spacedBy(spacing.xxs),
             ) {
+                state.modelConfigs.forEach { config ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(shapes.medium)
+                            .clickable {
+                                expanded = false
+                                onModelSelected(config.id)
+                            },
+                        color = if (config.id == activeModelConfig?.id) {
+                            scheme.primaryContainer.copy(alpha = 0.52f)
+                        } else {
+                            scheme.surface
+                        },
+                        shape = shapes.medium,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(spacing.micro),
+                        ) {
+                            Text(
+                                text = config.modelId,
+                                style = typography.labelLarge,
+                                color = if (config.id == activeModelConfig?.id) scheme.primary else scheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = "${config.providerId.displayName} / ${config.endpoint}",
+                                style = typography.bodySmall,
+                                color = extra.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                if (state.modelConfigs.isNotEmpty()) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = spacing.xxs),
+                        color = scheme.outlineVariant,
+                    )
+                }
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(shapes.medium)
                         .clickable {
                             expanded = false
-                            onOpenModelSettings()
+                            if (activeModelConfig?.providerId == com.hrm.breeze.domain.model.LlmProviderId.Local) {
+                                onOpenOnDeviceModels()
+                            } else {
+                                onOpenModelSettings()
+                            }
                         },
                     color = scheme.primaryContainer.copy(alpha = 0.58f),
                     shape = shapes.medium,
                 ) {
                     Text(
-                        text = stringResource(Res.string.model_settings_menu),
+                        text = if (activeModelConfig?.providerId == com.hrm.breeze.domain.model.LlmProviderId.Local) {
+                            stringResource(Res.string.on_device_models)
+                        } else {
+                            stringResource(Res.string.model_settings_menu)
+                        },
                         modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.sm),
                         style = typography.labelLarge,
                         color = scheme.primary,

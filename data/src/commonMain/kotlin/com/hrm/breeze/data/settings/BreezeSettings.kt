@@ -5,41 +5,50 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.hrm.breeze.domain.model.LlmProviderId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import okio.Path
 
 private const val DEFAULT_NAMESPACE = "breeze.preferences"
-private const val DEFAULT_ECHO_ENDPOINT = ""
-private const val DEFAULT_MODEL_ID = ""
-private const val DEFAULT_PROVIDER_ID = "local"
 private const val DEFAULT_APP_LANGUAGE_TAG = "system"
 private const val DEFAULT_REASONING_ENABLED = false
+private const val DEFAULT_TEMPERATURE = 0.7f
+private const val DEFAULT_TOP_P = 0.9f
+private const val DEFAULT_MAX_TOKENS = 2048
+private const val DEFAULT_CONTEXT_WINDOW = 2048
+private const val DEFAULT_STREAM_OUTPUT = true
 
-internal const val KEY_ECHO_ENDPOINT = "network.echo_endpoint"
-internal const val KEY_PROVIDER_ID = "network.provider_id"
-internal const val KEY_MODEL_ID = "model.current_id"
-internal const val KEY_API_TOKEN = "network.api_token"
+internal const val KEY_ACTIVE_MODEL_CONFIG_ID = "model.active_config_id"
 internal const val KEY_APP_LANGUAGE_TAG = "app.language_tag"
 internal const val KEY_REASONING_ENABLED = "model.reasoning_enabled"
+internal const val KEY_TEMPERATURE = "model.temperature"
+internal const val KEY_TOP_P = "model.top_p"
+internal const val KEY_MAX_TOKENS = "model.max_tokens"
+internal const val KEY_CONTEXT_WINDOW = "model.context_window"
+internal const val KEY_STREAM_OUTPUT = "model.stream_output"
 
-private val echoEndpointKey = stringPreferencesKey(KEY_ECHO_ENDPOINT)
-private val providerIdKey = stringPreferencesKey(KEY_PROVIDER_ID)
-private val modelIdKey = stringPreferencesKey(KEY_MODEL_ID)
-private val apiTokenKey = stringPreferencesKey(KEY_API_TOKEN)
+private val activeModelConfigIdKey = stringPreferencesKey(KEY_ACTIVE_MODEL_CONFIG_ID)
 private val appLanguageTagKey = stringPreferencesKey(KEY_APP_LANGUAGE_TAG)
 private val reasoningEnabledKey = booleanPreferencesKey(KEY_REASONING_ENABLED)
+private val temperatureKey = floatPreferencesKey(KEY_TEMPERATURE)
+private val topPKey = floatPreferencesKey(KEY_TOP_P)
+private val maxTokensKey = intPreferencesKey(KEY_MAX_TOKENS)
+private val contextWindowKey = intPreferencesKey(KEY_CONTEXT_WINDOW)
+private val streamOutputKey = booleanPreferencesKey(KEY_STREAM_OUTPUT)
 
 data class BreezeSettingsSnapshot(
-    val echoEndpoint: String = DEFAULT_ECHO_ENDPOINT,
-    val currentProviderId: LlmProviderId = LlmProviderId.fromStorageValue(DEFAULT_PROVIDER_ID),
-    val currentModelId: String = DEFAULT_MODEL_ID,
-    val apiToken: String? = null,
+    val activeModelConfigId: String? = null,
     val appLanguageTag: String = DEFAULT_APP_LANGUAGE_TAG,
     val reasoningEnabled: Boolean = DEFAULT_REASONING_ENABLED,
+    val temperature: Float = DEFAULT_TEMPERATURE,
+    val topP: Float = DEFAULT_TOP_P,
+    val maxTokens: Int = DEFAULT_MAX_TOKENS,
+    val contextWindow: Int = DEFAULT_CONTEXT_WINDOW,
+    val streamOutput: Boolean = DEFAULT_STREAM_OUTPUT,
 )
 
 class BreezeSettings(
@@ -48,38 +57,14 @@ class BreezeSettings(
     val snapshot: Flow<BreezeSettingsSnapshot> =
         dataStore.data.map(Preferences::toBreezeSettingsSnapshot)
 
-    suspend fun getEchoEndpoint(): String = snapshot.first().echoEndpoint
+    suspend fun getActiveModelConfigId(): String? = snapshot.first().activeModelConfigId
 
-    suspend fun updateEchoEndpoint(value: String) {
-        dataStore.edit { preferences ->
-            preferences[echoEndpointKey] = value
-        }
-    }
-
-    suspend fun getCurrentProviderId(): LlmProviderId = snapshot.first().currentProviderId
-
-    suspend fun updateCurrentProviderId(value: LlmProviderId) {
-        dataStore.edit { preferences ->
-            preferences[providerIdKey] = value.storageValue
-        }
-    }
-
-    suspend fun getCurrentModelId(): String = snapshot.first().currentModelId
-
-    suspend fun updateCurrentModelId(value: String) {
-        dataStore.edit { preferences ->
-            preferences[modelIdKey] = value
-        }
-    }
-
-    suspend fun getApiToken(): String? = snapshot.first().apiToken
-
-    suspend fun updateApiToken(value: String?) {
+    suspend fun updateActiveModelConfigId(value: String?) {
         dataStore.edit { preferences ->
             if (value.isNullOrBlank()) {
-                preferences.remove(apiTokenKey)
+                preferences.remove(activeModelConfigIdKey)
             } else {
-                preferences[apiTokenKey] = value
+                preferences[activeModelConfigIdKey] = value
             }
         }
     }
@@ -97,6 +82,36 @@ class BreezeSettings(
             preferences[reasoningEnabledKey] = value
         }
     }
+
+    suspend fun updateTemperature(value: Float) {
+        dataStore.edit { preferences ->
+            preferences[temperatureKey] = value
+        }
+    }
+
+    suspend fun updateTopP(value: Float) {
+        dataStore.edit { preferences ->
+            preferences[topPKey] = value
+        }
+    }
+
+    suspend fun updateMaxTokens(value: Int) {
+        dataStore.edit { preferences ->
+            preferences[maxTokensKey] = value
+        }
+    }
+
+    suspend fun updateContextWindow(value: Int) {
+        dataStore.edit { preferences ->
+            preferences[contextWindowKey] = value
+        }
+    }
+
+    suspend fun updateStreamOutput(value: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[streamOutputKey] = value
+        }
+    }
 }
 
 fun createBreezeSettings(
@@ -110,12 +125,14 @@ internal fun createPlatformSettingsDataStore(namespace: String): DataStore<Prefe
 
 internal fun Preferences.toBreezeSettingsSnapshot(): BreezeSettingsSnapshot =
     BreezeSettingsSnapshot(
-        echoEndpoint = this[echoEndpointKey] ?: DEFAULT_ECHO_ENDPOINT,
-        currentProviderId = LlmProviderId.fromStorageValue(this[providerIdKey] ?: DEFAULT_PROVIDER_ID),
-        currentModelId = this[modelIdKey] ?: DEFAULT_MODEL_ID,
-        apiToken = this[apiTokenKey],
+        activeModelConfigId = this[activeModelConfigIdKey],
         appLanguageTag = this[appLanguageTagKey] ?: DEFAULT_APP_LANGUAGE_TAG,
         reasoningEnabled = this[reasoningEnabledKey] ?: DEFAULT_REASONING_ENABLED,
+        temperature = this[temperatureKey] ?: DEFAULT_TEMPERATURE,
+        topP = this[topPKey] ?: DEFAULT_TOP_P,
+        maxTokens = this[maxTokensKey] ?: DEFAULT_MAX_TOKENS,
+        contextWindow = this[contextWindowKey] ?: DEFAULT_CONTEXT_WINDOW,
+        streamOutput = this[streamOutputKey] ?: DEFAULT_STREAM_OUTPUT,
     )
 
 expect fun createPlatformSettingsPath(namespace: String): Path

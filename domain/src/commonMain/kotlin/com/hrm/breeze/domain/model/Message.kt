@@ -10,6 +10,7 @@ data class Message(
     val conversationId: String,
     val role: Role,
     val content: String,
+    val reasoningContent: String? = null,
     val createdAt: Instant,
 ) {
     enum class Role { User, Assistant, System }

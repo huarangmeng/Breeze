@@ -7,14 +7,18 @@ import androidx.room3.RoomDatabaseConstructor
 import androidx.sqlite.SQLiteDriver
 import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.core.coroutines.defaultAppDispatchers
-import com.hrm.breeze.data.storage.driver.createPlatformSQLiteDriver
 import com.hrm.breeze.data.storage.dao.ConversationDao
 import com.hrm.breeze.data.storage.dao.MessageDao
+import com.hrm.breeze.data.storage.dao.ModelConfigDao
+import com.hrm.breeze.data.storage.dao.OnDeviceModelAssetDao
+import com.hrm.breeze.data.storage.driver.createPlatformSQLiteDriver
 import com.hrm.breeze.data.storage.entity.ConversationEntity
 import com.hrm.breeze.data.storage.entity.MessageEntity
+import com.hrm.breeze.data.storage.entity.ModelConfigEntity
+import com.hrm.breeze.data.storage.entity.OnDeviceModelAssetEntity
 
 @Database(
-    entities = [ConversationEntity::class, MessageEntity::class],
+    entities = [ConversationEntity::class, MessageEntity::class, ModelConfigEntity::class, OnDeviceModelAssetEntity::class],
     version = 1,
     exportSchema = true,
 )
@@ -22,6 +26,8 @@ import com.hrm.breeze.data.storage.entity.MessageEntity
 abstract class BreezeDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
     abstract fun messageDao(): MessageDao
+    abstract fun modelConfigDao(): ModelConfigDao
+    abstract fun onDeviceModelAssetDao(): OnDeviceModelAssetDao
 
     companion object {
         const val DefaultName: String = "breeze.db"
@@ -33,7 +39,6 @@ abstract class BreezeDatabase : RoomDatabase() {
         ): BreezeDatabase = builder
             .setDriver(driver)
             .setQueryCoroutineContext(dispatchers.io)
-            .fallbackToDestructiveMigration()
             .build()
 
         fun create(

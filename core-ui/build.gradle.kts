@@ -47,9 +47,7 @@ kotlin {
             api(libs.navigation.compose)
             api(libs.coil.compose)
 
-            api(libs.markdown.parser)
-            api(libs.markdown.runtime)
-            api(libs.markdown.renderer)
+            api(libs.bundles.markdown)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

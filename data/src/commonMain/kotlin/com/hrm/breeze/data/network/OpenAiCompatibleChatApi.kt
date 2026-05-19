@@ -1,5 +1,6 @@
 package com.hrm.breeze.data.network
 
+import com.hrm.breeze.data.llm.LlmStreamDelta
 import com.hrm.breeze.data.llm.LlmMessage
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
@@ -26,7 +27,7 @@ interface OpenAiCompatibleChatApi {
         modelId: String,
         messages: List<LlmMessage>,
         reasoningEnabled: Boolean = false,
-    ): Flow<String>
+    ): Flow<LlmStreamDelta>
 }
 
 class KtorOpenAiCompatibleChatApi(
@@ -38,7 +39,7 @@ class KtorOpenAiCompatibleChatApi(
         modelId: String,
         messages: List<LlmMessage>,
         reasoningEnabled: Boolean,
-    ): Flow<String> = flow {
+    ): Flow<LlmStreamDelta> = flow {
         val response = httpClient.post(endpoint.toChatCompletionsUrl()) {
             if (!apiToken.isNullOrBlank()) {
                 header(HttpHeaders.Authorization, "Bearer $apiToken")
@@ -120,19 +121,24 @@ private fun JsonElement?.extractNestedMessage(): String? {
         ?: obj["metadata"]?.jsonObject?.get("raw")?.jsonPrimitive?.contentOrNull
 }
 
-private fun MutableList<String>.consumeAsDeltaOrNull(): String? {
+private fun MutableList<String>.consumeAsDeltaOrNull(): LlmStreamDelta? {
     if (isEmpty()) return null
     val payload = joinToString(separator = "\n")
     clear()
     return payload.extractStreamDeltaOrNull()
 }
 
-private fun String.extractStreamDeltaOrNull(): String? =
+private fun String.extractStreamDeltaOrNull(): LlmStreamDelta? =
     runCatching {
-        BreezeJson.decodeFromString<OpenAiCompatibleChatStreamResponse>(this)
-            .choices
-            .joinToString(separator = "") { it.delta?.content.orEmpty() }
-            .takeIf(String::isNotEmpty)
+        BreezeJson.decodeFromString<OpenAiCompatibleChatStreamResponse>(this).choices.fold(
+            initial = LlmStreamDelta(),
+        ) { acc, choice ->
+            val delta = choice.delta
+            LlmStreamDelta(
+                contentDelta = acc.contentDelta + delta?.content.orEmpty(),
+                reasoningDelta = acc.reasoningDelta + delta?.reasoning.orEmpty(),
+            )
+        }.takeUnless(LlmStreamDelta::isEmpty)
     }.getOrNull()
 
 class OpenAiCompatibleApiException(
@@ -187,4 +193,5 @@ private data class OpenAiCompatibleStreamChoice(
 @Serializable
 private data class OpenAiCompatibleStreamDelta(
     val content: String? = null,
+    val reasoning: String? = null,
 )

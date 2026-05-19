@@ -6,11 +6,13 @@
     <string name="history_list">历史列表</string>
     <string name="api_config">API 配置</string>
     <string name="model_settings">模型设置</string>
+    <string name="on_device_models">端侧模型</string>
     <string name="more_features">更多能力</string>
     <string name="current_chat_description">返回主对话工作区</string>
     <string name="history_description">进入历史路由并查看会话列表</string>
     <string name="api_config_description">打开 Provider 与鉴权配置页</string>
     <string name="model_settings_description">打开模型参数与输出偏好页</string>
+    <string name="on_device_models_description">下载、删除并选择内置端侧模型</string>
     <string name="more_features_description">后续用于承载更多 tab</string>
     <string name="app_language">应用语言</string>
     <string name="app_language_description">默认跟随系统，也可以固定为指定语言</string>
@@ -46,6 +48,9 @@
     <string name="cancel">取消</string>
     <string name="saving">保存中...</string>
     <string name="save">保存</string>
+    <string name="download">下载</string>
+    <string name="delete_model">删除</string>
+    <string name="set_current_model">设为当前模型</string>
     <string name="model_parameters">模型参数</string>
     <string name="preview_parameter_layout">预览参数布局</string>
     <string name="adjust_model_parameters">调整模型参数以控制回复行为。</string>
@@ -75,6 +80,7 @@
     <string name="composer_placeholder">发消息或输入 / 选择技能</string>
     <string name="quick">快速</string>
     <string name="reasoning_mode">推理模式</string>
+    <string name="reasoning_process">推理过程</string>
     <string name="writing">写作</string>
     <string name="code">代码</string>
     <string name="sending">发送中</string>
@@ -107,6 +113,14 @@
     <string name="status_test_connection_success">连接测试成功。</string>
     <string name="status_test_connection_failed">连接测试失败，请检查 API Key、Base URL 和模型 ID。</string>
     <string name="status_save_failed">保存失败，请稍后重试。</string>
+    <string name="status_download_failed">下载失败，请稍后重试。</string>
+    <string name="status_downloaded">已下载</string>
+    <string name="status_downloading">下载中</string>
+    <string name="status_not_downloaded">未下载</string>
+    <string name="status_local_model_selected">已切换当前端侧模型。</string>
+    <string name="status_local_model_deleted">端侧模型已删除。</string>
+    <string name="status_local_model_download_started">模型下载完成。</string>
+    <string name="status_local_model_not_ready">请先下载并选择端侧模型，再发送消息。</string>
     <string name="status_model_reset">已恢复为最近一次保存的模型选择。</string>
     <string name="status_model_id_required">模型 ID 不能为空。</string>
     <string name="status_model_saved">模型设置已保存。</string>

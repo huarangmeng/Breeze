@@ -27,7 +27,7 @@ coil = "3.4.0"
 kermit = "2.1.0"
 navigationCompose = "2.9.2"
 turbine = "1.2.1"
-markdown = "1.2.6"
+markdown = "1.2.8"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -91,6 +91,9 @@ markdown-runtime = { module = "io.github.huarangmeng:markdown-runtime", version.
 markdown-renderer = { module = "io.github.huarangmeng:markdown-renderer", version.ref = "markdown" }
 
 kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version = "0.5.0" }
+
+[bundles]
+markdown = ["markdown-parser", "markdown-renderer", "markdown-runtime"]
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

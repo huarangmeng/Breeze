@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.hrm.breeze.data.settings.BreezeSettingsSnapshot
 import com.hrm.breeze.domain.model.Conversation
 import com.hrm.breeze.domain.model.Message
+import com.hrm.breeze.domain.model.ModelConfig
+import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.getPlatform
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.adaptive.PaneMode
@@ -38,8 +40,10 @@ fun ChatScreen(
     onSelectChatTab: () -> Unit,
     onOpenApiConfig: () -> Unit,
     onOpenModelSettings: () -> Unit,
+    onOpenOnDeviceModels: () -> Unit,
     embeddedApiConfigContent: @Composable () -> Unit = {},
     embeddedModelSettingsContent: @Composable () -> Unit = {},
+    embeddedOnDeviceModelsContent: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
     previewMode: Boolean = false,
 ) {
@@ -56,6 +60,7 @@ fun ChatScreen(
         onModelSelected,
         onOpenSettings,
         onOpenModelSettings,
+        onOpenOnDeviceModels,
     ) {
         ChatMainPanelActions(
             onDraftChange = onDraftChange,
@@ -65,6 +70,7 @@ fun ChatScreen(
             onModelSelected = onModelSelected,
             onOpenSettings = onOpenSettings,
             onOpenModelSettings = onOpenModelSettings,
+            onOpenOnDeviceModels = onOpenOnDeviceModels,
         )
     }
 
@@ -88,6 +94,7 @@ fun ChatScreen(
             onNewConversation = onNewConversation,
             onOpenApiConfig = onOpenApiConfig,
             onOpenModelSettings = onOpenModelSettings,
+            onOpenOnDeviceModels = onOpenOnDeviceModels,
             selectedDesktopRoute = selectedDesktopRoute,
             onSelectChatTab = onSelectChatTab,
             leadingInset = macSidebarLeadingInset,
@@ -110,6 +117,7 @@ fun ChatScreen(
             desktopTopInset = macHeaderTopInset,
             embeddedApiConfigContent = embeddedApiConfigContent,
             embeddedModelSettingsContent = embeddedModelSettingsContent,
+            embeddedOnDeviceModelsContent = embeddedOnDeviceModelsContent,
         )
     }
 }
@@ -133,6 +141,7 @@ internal fun CompactChatLayout(
             onNewConversation = actions.onNewConversation,
             onModelSelected = actions.onModelSelected,
             onOpenModelSettings = actions.onOpenModelSettings,
+            onOpenOnDeviceModels = actions.onOpenOnDeviceModels,
         )
         ChatMainPanel(
             state = state,
@@ -141,6 +150,7 @@ internal fun CompactChatLayout(
             desktopTopInset = 0.dp,
             embeddedApiConfigContent = {},
             embeddedModelSettingsContent = {},
+            embeddedOnDeviceModelsContent = {},
             compactMode = true,
             modifier = Modifier.weight(1f),
             previewMode = previewMode,
@@ -152,6 +162,27 @@ internal fun previewChatUiState(): ChatUiState {
     val now = Clock.System.now()
     val nowEpochMillis = now.toEpochMilliseconds()
     val conversationId = "preview-conversation"
+    val previewConfigs =
+        listOf(
+            ModelConfig(
+                id = "preview-config-1",
+                providerId = LlmProviderId.OpenAI,
+                endpoint = "https://openrouter.ai/api/v1",
+                apiToken = null,
+                modelId = "nvidia/nemotron-3-super-120b-a12b:free",
+                createdAt = now,
+                updatedAt = now,
+            ),
+            ModelConfig(
+                id = "preview-config-2",
+                providerId = LlmProviderId.OpenAI,
+                endpoint = "https://openrouter.ai/api/v1",
+                apiToken = null,
+                modelId = "google/gemma-3-27b-it:free",
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
     return ChatUiState(
         conversations = listOf(
             Conversation(
@@ -195,6 +226,8 @@ internal fun previewChatUiState(): ChatUiState {
                 createdAt = now,
             ),
         ),
+        modelConfigs = previewConfigs,
+        activeModelConfig = previewConfigs.first(),
         activeConversationId = conversationId,
         draft = "",
         isSending = false,

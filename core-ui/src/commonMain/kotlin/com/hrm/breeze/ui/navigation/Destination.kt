@@ -36,6 +36,11 @@ data object ModelSettings : TopLevelDestination {
     override val title: String = "Models"
 }
 
+data object OnDeviceModels : TopLevelDestination {
+    override val routePattern: String = "on-device-models"
+    override val title: String = "On-device"
+}
+
 data object SettingsHub : Destination {
     override val routePattern: String = "settings-hub"
 }
@@ -60,5 +65,6 @@ object BreezeDestinations {
             History,
             ApiConfig,
             ModelSettings,
+            OnDeviceModels,
         )
 }

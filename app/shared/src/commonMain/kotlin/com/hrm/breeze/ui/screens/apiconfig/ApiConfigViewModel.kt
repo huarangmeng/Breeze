@@ -8,6 +8,7 @@ import com.hrm.breeze.data.network.OpenAiCompatibleApiException
 import com.hrm.breeze.data.network.OpenAiCompatibleChatApi
 import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.domain.model.LlmProviderId
+import com.hrm.breeze.domain.repository.ModelConfigRepository
 import com.hrm.breeze.generated.resources.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +37,7 @@ data class ApiConfigUiState(
 class ApiConfigViewModel(
     private val settings: BreezeSettings,
     private val chatApi: OpenAiCompatibleChatApi,
+    private val modelConfigRepository: ModelConfigRepository,
 ) : ViewModel() {
     private val draftEndpoint = MutableStateFlow("")
     private val draftApiToken = MutableStateFlow("")
@@ -142,10 +144,12 @@ class ApiConfigViewModel(
             statusDetail.value = null
 
             runCatching {
-                settings.updateCurrentProviderId(LlmProviderId.OpenAI)
-                settings.updateEchoEndpoint(currentState.endpoint.trim())
-                settings.updateApiToken(currentState.apiToken.trim().ifBlank { null })
-                settings.updateCurrentModelId(currentState.modelId.trim())
+                modelConfigRepository.createAndActivateConfig(
+                    providerId = LlmProviderId.OpenAI,
+                    endpoint = currentState.endpoint.trim(),
+                    apiToken = currentState.apiToken.trim().ifBlank { null },
+                    modelId = currentState.modelId.trim(),
+                )
             }.onSuccess {
                 draftEndpoint.value = ""
                 draftApiToken.value = ""
@@ -180,7 +184,11 @@ class ApiConfigViewModel(
                     modelId = currentState.modelId.trim(),
                     messages = listOf(LlmMessage(role = LlmMessage.Role.User, content = "ping")),
                     reasoningEnabled = settings.getReasoningEnabled(),
-                ).firstOrNull() ?: error("OpenAI-compatible stream did not emit any content")
+                ).firstOrNull()?.let { delta ->
+                    if (delta.isEmpty) {
+                        error("OpenAI-compatible stream did not emit any content")
+                    }
+                } ?: error("OpenAI-compatible stream did not emit any content")
             }.onSuccess {
                 statusMessage.value = Res.string.status_test_connection_success
                 statusDetail.value = null

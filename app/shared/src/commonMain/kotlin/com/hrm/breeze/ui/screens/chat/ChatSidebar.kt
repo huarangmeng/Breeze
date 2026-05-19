@@ -38,6 +38,7 @@ import com.hrm.breeze.generated.resources.model_label
 import com.hrm.breeze.generated.resources.model_settings
 import com.hrm.breeze.generated.resources.more_features
 import com.hrm.breeze.generated.resources.new_chat
+import com.hrm.breeze.generated.resources.on_device_models
 import com.hrm.breeze.generated.resources.recent_30_days
 import com.hrm.breeze.generated.resources.recent_7_days
 import com.hrm.breeze.generated.resources.today
@@ -45,6 +46,7 @@ import com.hrm.breeze.generated.resources.yesterday
 import com.hrm.breeze.ui.navigation.ApiConfig
 import com.hrm.breeze.ui.navigation.Chat
 import com.hrm.breeze.ui.navigation.ModelSettings
+import com.hrm.breeze.ui.navigation.OnDeviceModels
 import com.hrm.breeze.ui.theme.BreezeTheme
 import kotlin.time.Clock
 import org.jetbrains.compose.resources.stringResource
@@ -56,6 +58,7 @@ internal fun DesktopSidebar(
     onNewConversation: () -> Unit,
     onOpenApiConfig: () -> Unit,
     onOpenModelSettings: () -> Unit,
+    onOpenOnDeviceModels: () -> Unit,
     selectedDesktopRoute: String,
     onSelectChatTab: () -> Unit,
     leadingInset: Dp,
@@ -139,6 +142,11 @@ internal fun DesktopSidebar(
                 label = stringResource(Res.string.model_settings),
                 selected = selectedDesktopRoute == ModelSettings.routePattern,
                 onClick = onOpenModelSettings,
+            )
+            SidebarActionItem(
+                label = stringResource(Res.string.on_device_models),
+                selected = selectedDesktopRoute == OnDeviceModels.routePattern,
+                onClick = onOpenOnDeviceModels,
             )
             SidebarActionItem(
                 label = stringResource(Res.string.more_features),

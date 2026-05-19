@@ -14,6 +14,7 @@ import com.hrm.breeze.domain.model.Conversation
 import com.hrm.breeze.domain.model.Message
 import com.hrm.breeze.domain.model.ModelProfile
 import com.hrm.breeze.domain.repository.ChatRepository
+import com.hrm.breeze.domain.repository.ModelConfigRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -23,6 +24,7 @@ import kotlin.time.Clock
 class ChatRepositoryImpl(
     private val database: BreezeDatabase,
     private val llmProviderRegistry: LlmProviderRegistry,
+    private val modelConfigRepository: ModelConfigRepository,
     private val settings: BreezeSettings,
     private val dispatchers: AppDispatchers = defaultAppDispatchers(),
     private val clock: Clock = Clock.System,
@@ -40,22 +42,26 @@ class ChatRepositoryImpl(
     override fun sendMessage(conversationId: String, text: String): Flow<Message> = flow {
         val now = clock.now()
         val title = text.trim().ifBlank { "新对话" }.take(32)
-        val providerId = settings.getCurrentProviderId()
-        val modelId = settings.getCurrentModelId()
+        val activeConfig = modelConfigRepository.getActiveModelConfig()
+            ?: error("No active model config selected")
         val messageDao = database.messageDao()
         val conversationDao = database.conversationDao()
+        val settingsSnapshot = settings.snapshot.first()
         val modelProfile =
             ModelProfile(
-                id = modelId,
-                providerId = providerId,
-                displayName = modelId,
+                id = activeConfig.modelId,
+                providerId = activeConfig.providerId,
+                displayName = activeConfig.modelId,
+                endpoint = activeConfig.endpoint,
+                apiToken = activeConfig.apiToken,
+                reasoningEnabled = settingsSnapshot.reasoningEnabled,
             )
 
         conversationDao.upsertConversation(
             ConversationEntity(
                 id = conversationId,
                 title = title,
-                modelId = modelId,
+                modelId = activeConfig.modelId,
                 updatedAtEpochMillis = now.toEpochMilliseconds(),
             )
         )
@@ -79,22 +85,30 @@ class ChatRepositoryImpl(
                 conversationId = conversationId,
                 messages = historyMessages,
                 model = modelProfile,
+                temperature = settingsSnapshot.temperature,
+                topP = settingsSnapshot.topP,
+                maxTokens = settingsSnapshot.maxTokens,
+                contextWindow = settingsSnapshot.contextWindow,
+                streamOutput = settingsSnapshot.streamOutput,
             )
         val provider = llmProviderRegistry.require(modelProfile.providerId)
         var assistantText = ""
+        var reasoningText = ""
 
         provider.stream(request).collect { delta ->
-            if (delta.isEmpty()) {
+            if (delta.isEmpty) {
                 return@collect
             }
 
-            assistantText += delta
+            assistantText += delta.contentDelta
+            reasoningText += delta.reasoningDelta
             val assistantMessage =
                 MessageEntity(
                     id = assistantMessageId,
                     conversationId = conversationId,
                     role = "assistant",
                     content = assistantText,
+                    reasoningContent = reasoningText.ifBlank { null },
                     createdAtEpochMillis = assistantTime.toEpochMilliseconds(),
                 )
             messageDao.insertMessage(assistantMessage)
@@ -102,14 +116,14 @@ class ChatRepositoryImpl(
                 ConversationEntity(
                     id = conversationId,
                     title = title,
-                    modelId = modelId,
+                    modelId = activeConfig.modelId,
                     updatedAtEpochMillis = assistantTime.toEpochMilliseconds(),
                 )
             )
             emit(assistantMessage.toDomain())
         }
 
-        if (assistantText.isEmpty()) {
+        if (assistantText.isEmpty() && reasoningText.isEmpty()) {
             error("LLM stream finished without assistant content")
         }
 
@@ -117,7 +131,7 @@ class ChatRepositoryImpl(
             ConversationEntity(
                 id = conversationId,
                 title = title,
-                modelId = modelId,
+                modelId = activeConfig.modelId,
                 updatedAtEpochMillis = assistantTime.toEpochMilliseconds(),
             )
         )

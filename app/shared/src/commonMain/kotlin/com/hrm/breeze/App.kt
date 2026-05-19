@@ -25,6 +25,9 @@ import com.hrm.breeze.ui.screens.history.previewHistoryUiState
 import com.hrm.breeze.ui.screens.modelsettings.ModelSettingsRoute
 import com.hrm.breeze.ui.screens.modelsettings.ModelSettingsScreen
 import com.hrm.breeze.ui.screens.modelsettings.previewModelSettingsUiState
+import com.hrm.breeze.ui.screens.ondevicemodels.OnDeviceModelsRoute
+import com.hrm.breeze.ui.screens.ondevicemodels.OnDeviceModelsScreen
+import com.hrm.breeze.ui.screens.ondevicemodels.OnDeviceModelsUiState
 import com.hrm.breeze.ui.theme.BreezeAppTheme
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.launch
@@ -51,7 +54,7 @@ private fun AppContent(
                 BreezeNavHost(
                     languagePreference = BreezeLanguagePreference.System.storageValue,
                     onLanguagePreferenceSelected = {},
-                    chatContent = { selectedDesktopRoute, onOpenSettings, onSelectChatTab, onOpenApiConfig, onOpenModelSettings, embeddedApiConfigContent, embeddedModelSettingsContent ->
+                    chatContent = { selectedDesktopRoute, onOpenSettings, onSelectChatTab, onOpenApiConfig, onOpenModelSettings, onOpenOnDeviceModels, embeddedApiConfigContent, embeddedModelSettingsContent, embeddedOnDeviceModelsContent ->
                         ChatScreen(
                             state = previewChatUiState(),
                             onDraftChange = {},
@@ -65,8 +68,10 @@ private fun AppContent(
                             onSelectChatTab = onSelectChatTab,
                             onOpenApiConfig = onOpenApiConfig,
                             onOpenModelSettings = onOpenModelSettings,
+                            onOpenOnDeviceModels = onOpenOnDeviceModels,
                             embeddedApiConfigContent = embeddedApiConfigContent,
                             embeddedModelSettingsContent = embeddedModelSettingsContent,
+                            embeddedOnDeviceModelsContent = embeddedOnDeviceModelsContent,
                             previewMode = true,
                         )
                     },
@@ -104,9 +109,25 @@ private fun AppContent(
                             onOpenHistory = onOpenHistory,
                             onOpenApiConfig = onOpenApiConfig,
                             onModelIdChange = {},
+                            onTemperatureChange = {},
+                            onTopPChange = {},
+                            onMaxTokensChange = {},
+                            onContextWindowChange = {},
+                            onStreamOutputChange = {},
                             onReset = {},
                             onSave = {},
                             previewMode = true,
+                            embeddedMode = embeddedMode,
+                            showBackButton = !embeddedMode,
+                        )
+                    },
+                    onDeviceModelsContent = { onBack, embeddedMode ->
+                        OnDeviceModelsScreen(
+                            state = OnDeviceModelsUiState(),
+                            onBack = onBack,
+                            onDownload = {},
+                            onSelect = {},
+                            onDelete = {},
                             embeddedMode = embeddedMode,
                             showBackButton = !embeddedMode,
                         )
@@ -156,15 +177,17 @@ private fun BreezeRuntimeApp() {
                     settings.updateAppLanguageTag(languageTag)
                 }
             },
-            chatContent = { selectedDesktopRoute, onOpenSettings, onSelectChatTab, onOpenApiConfig, onOpenModelSettings, embeddedApiConfigContent, embeddedModelSettingsContent ->
+            chatContent = { selectedDesktopRoute, onOpenSettings, onSelectChatTab, onOpenApiConfig, onOpenModelSettings, onOpenOnDeviceModels, embeddedApiConfigContent, embeddedModelSettingsContent, embeddedOnDeviceModelsContent ->
                 ChatRoute(
                     selectedDesktopRoute = selectedDesktopRoute,
                     onOpenSettings = onOpenSettings,
                     onSelectChatTab = onSelectChatTab,
                     onOpenApiConfig = onOpenApiConfig,
                     onOpenModelSettings = onOpenModelSettings,
+                    onOpenOnDeviceModels = onOpenOnDeviceModels,
                     embeddedApiConfigContent = embeddedApiConfigContent,
                     embeddedModelSettingsContent = embeddedModelSettingsContent,
+                    embeddedOnDeviceModelsContent = embeddedOnDeviceModelsContent,
                 )
             },
             historyContent = { onNewConversation, onBackToChat, onOpenApiConfig, onOpenModelSettings ->
@@ -188,6 +211,13 @@ private fun BreezeRuntimeApp() {
                     onBack = onBack,
                     onOpenHistory = onOpenHistory,
                     onOpenApiConfig = onOpenApiConfig,
+                    embeddedMode = embeddedMode,
+                    showBackButton = !embeddedMode,
+                )
+            },
+            onDeviceModelsContent = { onBack, embeddedMode ->
+                OnDeviceModelsRoute(
+                    onBack = onBack,
                     embeddedMode = embeddedMode,
                     showBackButton = !embeddedMode,
                 )

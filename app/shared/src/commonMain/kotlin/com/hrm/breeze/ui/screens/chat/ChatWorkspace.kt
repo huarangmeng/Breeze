@@ -48,6 +48,7 @@ import com.hrm.breeze.generated.resources.quick
 import com.hrm.breeze.generated.resources.reasoning_mode
 import com.hrm.breeze.generated.resources.send
 import com.hrm.breeze.generated.resources.sending
+import com.hrm.breeze.generated.resources.on_device_models
 import com.hrm.breeze.generated.resources.welcome_prompt
 import com.hrm.breeze.generated.resources.writing
 import com.hrm.breeze.generated.resources.you
@@ -57,7 +58,9 @@ import com.hrm.breeze.ui.adaptive.WidthClass
 import com.hrm.breeze.ui.navigation.ApiConfig
 import com.hrm.breeze.ui.navigation.Chat
 import com.hrm.breeze.ui.navigation.ModelSettings
+import com.hrm.breeze.ui.navigation.OnDeviceModels
 import com.hrm.breeze.ui.theme.BreezeTheme
+import com.hrm.markdown.renderer.Markdown
 import org.jetbrains.compose.resources.stringResource
 
 internal data class ChatMainPanelActions(
@@ -68,6 +71,7 @@ internal data class ChatMainPanelActions(
     val onModelSelected: (String) -> Unit,
     val onOpenSettings: () -> Unit,
     val onOpenModelSettings: () -> Unit,
+    val onOpenOnDeviceModels: () -> Unit,
 )
 
 @Composable
@@ -78,6 +82,7 @@ internal fun ChatMainPanel(
     desktopTopInset: Dp,
     embeddedApiConfigContent: @Composable () -> Unit,
     embeddedModelSettingsContent: @Composable () -> Unit,
+    embeddedOnDeviceModelsContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     previewMode: Boolean,
     compactMode: Boolean,
@@ -103,15 +108,15 @@ internal fun ChatMainPanel(
             verticalArrangement = Arrangement.spacedBy(spacing.md),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (!compactMode) {
-                DesktopWorkspaceHeader(
-                    state = state,
-                    actions = actions,
-                    selectedDesktopRoute = selectedDesktopRoute,
-                )
-            }
             when {
                 compactMode || selectedDesktopRoute == Chat.routePattern -> {
+                    if (!compactMode) {
+                        DesktopWorkspaceHeader(
+                            state = state,
+                            actions = actions,
+                            selectedDesktopRoute = selectedDesktopRoute,
+                        )
+                    }
                     MessageStage(
                         state = state,
                         onPromptSelected = actions.onDraftChange,
@@ -144,6 +149,14 @@ internal fun ChatMainPanel(
                         modifier = Modifier.weight(1f),
                     ) {
                         embeddedModelSettingsContent()
+                    }
+                }
+
+                selectedDesktopRoute == OnDeviceModels.routePattern -> {
+                    Box(
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        embeddedOnDeviceModelsContent()
                     }
                 }
             }
@@ -180,6 +193,7 @@ private fun DesktopWorkspaceHeader(
             state = state,
             onModelSelected = actions.onModelSelected,
             onOpenModelSettings = actions.onOpenModelSettings,
+            onOpenOnDeviceModels = actions.onOpenOnDeviceModels,
             compact = true,
         )
     }
@@ -192,6 +206,7 @@ private fun desktopHeaderTitle(
 ): String = when (selectedDesktopRoute) {
     ApiConfig.routePattern -> stringResource(Res.string.api_config)
     ModelSettings.routePattern -> stringResource(Res.string.model_settings)
+    OnDeviceModels.routePattern -> stringResource(Res.string.on_device_models)
     else -> state.conversations.firstOrNull { it.id == state.activeConversationId }?.title ?: stringResource(Res.string.new_chat)
 }
 
@@ -218,6 +233,8 @@ private fun MessageStage(
         scrollState.scrollTo(scrollState.maxValue)
     }
 
+    val latestAssistantMessageId = state.messages.lastOrNull { it.role == Message.Role.Assistant }?.id
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -225,7 +242,10 @@ private fun MessageStage(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         state.messages.forEach { message ->
-            MessageBubble(message = message)
+            MessageBubble(
+                message = message,
+                isStreaming = state.isSending && message.role == Message.Role.Assistant && message.id == latestAssistantMessageId,
+            )
         }
     }
 }
@@ -413,6 +433,7 @@ private fun ComposerBar(
 @Composable
 private fun MessageBubble(
     message: Message,
+    isStreaming: Boolean = false,
 ) {
     val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
@@ -436,11 +457,20 @@ private fun MessageBubble(
                 style = typography.labelMedium,
                 color = if (isUser) extra.chatUserText else extra.chatAiText,
             )
-            Text(
-                text = message.content,
-                style = typography.bodyMedium,
-                color = if (isUser) extra.chatUserText else extra.chatAiText,
-            )
+            if (isUser) {
+                Text(
+                    text = message.content,
+                    style = typography.bodyMedium,
+                    color = extra.chatUserText,
+                )
+            } else {
+                Markdown(
+                    markdown = message.content,
+                    modifier = Modifier.fillMaxWidth(),
+                    isStreaming = isStreaming,
+                    enableScroll = false,
+                )
+            }
         }
     }
 }

@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import com.hrm.breeze.generated.resources.*
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.theme.BreezeTheme
@@ -85,12 +86,10 @@ fun ApiConfigScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(spacing.xl),
             ) {
-                if (!embeddedMode) {
-                    ApiConfigTopBar(
-                        onBack = onBack,
-                        showBackButton = showBackButton,
-                    )
-                }
+                ApiConfigHeader(
+                    onBack = onBack,
+                    showBackButton = showBackButton && !embeddedMode,
+                )
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = scheme.surface,
@@ -125,7 +124,7 @@ fun ApiConfigScreen(
 }
 
 @Composable
-private fun ApiConfigTopBar(
+private fun ApiConfigHeader(
     onBack: () -> Unit,
     showBackButton: Boolean,
 ) {
@@ -133,16 +132,14 @@ private fun ApiConfigTopBar(
     val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
     val typography = BreezeTheme.typography
-    val extra = BreezeTheme.extendedColors
 
-    Row(
+    Box(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showBackButton) {
             TextButton(
                 onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart),
                 shape = shapes.medium,
                 colors = ButtonDefaults.textButtonColors(
                     containerColor = scheme.surface,
@@ -154,12 +151,15 @@ private fun ApiConfigTopBar(
         }
 
         Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(spacing.xxs),
         ) {
             Text(
                 text = stringResource(Res.string.api_configuration),
                 style = typography.titleLarge,
                 color = scheme.onBackground,
+                textAlign = TextAlign.Center,
             )
         }
     }

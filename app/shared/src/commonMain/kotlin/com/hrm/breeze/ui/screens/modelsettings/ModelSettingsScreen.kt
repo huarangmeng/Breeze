@@ -22,15 +22,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.hrm.breeze.domain.model.LlmProviderId
+import androidx.compose.ui.text.style.TextAlign
 import com.hrm.breeze.generated.resources.*
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.theme.BreezeTheme
@@ -44,6 +38,11 @@ fun ModelSettingsScreen(
     onOpenHistory: () -> Unit,
     onOpenApiConfig: () -> Unit,
     onModelIdChange: (String) -> Unit,
+    onTemperatureChange: (Float) -> Unit,
+    onTopPChange: (Float) -> Unit,
+    onMaxTokensChange: (Int) -> Unit,
+    onContextWindowChange: (Int) -> Unit,
+    onStreamOutputChange: (Boolean) -> Unit,
     onReset: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -55,11 +54,6 @@ fun ModelSettingsScreen(
     val scheme = MaterialTheme.colorScheme
     val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
-    var temperature by remember { mutableFloatStateOf(0.7f) }
-    var topP by remember { mutableFloatStateOf(0.9f) }
-    var maxTokens by remember { mutableIntStateOf(2048) }
-    var contextLength by remember { mutableIntStateOf(8192) }
-    var streamOutput by remember { mutableStateOf(true) }
 
     val contentModifier = if (embeddedMode) {
         modifier.fillMaxSize()
@@ -92,14 +86,12 @@ fun ModelSettingsScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(spacing.xl),
             ) {
-                if (!embeddedMode) {
-                    ModelSettingsHeader(
-                        state = state,
-                        previewMode = previewMode,
-                        onBack = onBack,
-                        showBackButton = showBackButton,
-                    )
-                }
+                ModelSettingsHeader(
+                    state = state,
+                    previewMode = previewMode,
+                    onBack = onBack,
+                    showBackButton = showBackButton && !embeddedMode,
+                )
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = scheme.surface,
@@ -119,46 +111,42 @@ fun ModelSettingsScreen(
                         ParameterRow(
                             title = stringResource(Res.string.temperature),
                             description = stringResource(Res.string.temperature_description),
-                            valueLabel = formatTwoDecimals(temperature),
+                            valueLabel = formatTwoDecimals(state.temperature),
                             minLabel = "0",
                             maxLabel = "2",
-                            sliderValue = temperature / 2f,
-                            onSliderValueChange = { temperature = it * 2f },
+                            sliderValue = state.temperature / 2f,
+                            onSliderValueChange = { onTemperatureChange(it * 2f) },
                         )
                         ParameterRow(
                             title = stringResource(Res.string.top_p),
                             description = stringResource(Res.string.top_p_description),
-                            valueLabel = formatTwoDecimals(topP),
+                            valueLabel = formatTwoDecimals(state.topP),
                             minLabel = "0",
                             maxLabel = "1",
-                            sliderValue = topP,
-                            onSliderValueChange = { topP = it },
+                            sliderValue = state.topP,
+                            onSliderValueChange = onTopPChange,
                         )
                         ParameterRow(
                             title = stringResource(Res.string.max_tokens),
                             description = stringResource(Res.string.max_tokens_description),
-                            valueLabel = maxTokens.toString(),
+                            valueLabel = state.maxTokens.toString(),
                             minLabel = "256",
                             maxLabel = "8192",
-                            sliderValue = ((maxTokens - 256).toFloat() / (8192 - 256).toFloat()).coerceIn(0f, 1f),
-                            onSliderValueChange = {
-                                maxTokens = (256 + it * (8192 - 256)).roundToInt()
-                            },
+                            sliderValue = ((state.maxTokens - 256).toFloat() / (8192 - 256).toFloat()).coerceIn(0f, 1f),
+                            onSliderValueChange = { onMaxTokensChange((256 + it * (8192 - 256)).roundToInt()) },
                         )
                         ParameterRow(
                             title = stringResource(Res.string.context_window_length),
                             description = stringResource(Res.string.context_window_length_description),
-                            valueLabel = contextLength.toString(),
+                            valueLabel = state.contextWindow.toString(),
                             minLabel = "1024",
                             maxLabel = "32768",
-                            sliderValue = ((contextLength - 1024).toFloat() / (32768 - 1024).toFloat()).coerceIn(0f, 1f),
-                            onSliderValueChange = {
-                                contextLength = (1024 + it * (32768 - 1024)).roundToInt()
-                            },
+                            sliderValue = ((state.contextWindow - 1024).toFloat() / (32768 - 1024).toFloat()).coerceIn(0f, 1f),
+                            onSliderValueChange = { onContextWindowChange((1024 + it * (32768 - 1024)).roundToInt()) },
                         )
                         StreamOutputRow(
-                            checked = streamOutput,
-                            onCheckedChange = { streamOutput = it },
+                            checked = state.streamOutput,
+                            onCheckedChange = onStreamOutputChange,
                         )
                         ModelSettingsActions(
                             state = state,
@@ -185,14 +173,13 @@ private fun ModelSettingsHeader(
     val typography = BreezeTheme.typography
     val extra = BreezeTheme.extendedColors
 
-    Row(
+    Box(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showBackButton) {
             TextButton(
                 onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart),
                 shape = shapes.medium,
                 colors = ButtonDefaults.textButtonColors(
                     containerColor = scheme.surface,
@@ -204,22 +191,30 @@ private fun ModelSettingsHeader(
         }
 
         Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(spacing.xxs),
         ) {
             Text(
                 text = stringResource(Res.string.model_parameters),
                 style = typography.titleLarge,
                 color = scheme.onBackground,
+                textAlign = TextAlign.Center,
             )
             Text(
                 text = if (previewMode) stringResource(Res.string.preview_parameter_layout) else stringResource(Res.string.adjust_model_parameters),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
+                textAlign = TextAlign.Center,
             )
             Text(
-                text = stringResource(Res.string.provider_label, state.providerId.displayName),
+                text = stringResource(
+                    Res.string.provider_label,
+                    state.providerDisplayName.ifBlank { stringResource(Res.string.model_not_configured) },
+                ),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -453,7 +448,7 @@ private fun ModelSettingsActions(
 
 internal fun previewModelSettingsUiState(): ModelSettingsUiState =
     ModelSettingsUiState(
-        providerId = LlmProviderId.OpenAI,
+        providerDisplayName = "OpenAI",
         selectedModelId = "",
         hasUnsavedChanges = true,
     )

@@ -25,6 +25,7 @@ import com.hrm.breeze.ui.navigation.ApiConfig
 import com.hrm.breeze.ui.navigation.Chat
 import com.hrm.breeze.ui.navigation.History
 import com.hrm.breeze.ui.navigation.ModelSettings
+import com.hrm.breeze.ui.navigation.OnDeviceModels
 import com.hrm.breeze.ui.navigation.SettingsHub
 import com.hrm.breeze.ui.navigation.TopLevelDestination
 import com.hrm.breeze.ui.screens.settingshub.SettingsHubScreen
@@ -42,8 +43,10 @@ fun BreezeNavHost(
         onSelectChatTab: () -> Unit,
         onOpenApiConfig: () -> Unit,
         onOpenModelSettings: () -> Unit,
+        onOpenOnDeviceModels: () -> Unit,
         embeddedApiConfigContent: @Composable () -> Unit,
         embeddedModelSettingsContent: @Composable () -> Unit,
+        embeddedOnDeviceModelsContent: @Composable () -> Unit,
     ) -> Unit,
     historyContent: @Composable (
         onNewConversation: () -> Unit,
@@ -78,6 +81,15 @@ fun BreezeNavHost(
             description = "模型参数页面还未接入。",
         )
     },
+    onDeviceModelsContent: @Composable (
+        onBack: () -> Unit,
+        embeddedMode: Boolean,
+    ) -> Unit = { _, _ ->
+        FeaturePlaceholderScreen(
+            title = "On-device Models",
+            description = "端侧模型页面还未接入。",
+        )
+    },
 ) {
     val navController = rememberNavController()
     val scheme = MaterialTheme.colorScheme
@@ -97,6 +109,7 @@ fun BreezeNavHost(
             historyContent = historyContent,
             apiConfigContent = apiConfigContent,
             modelSettingsContent = modelSettingsContent,
+            onDeviceModelsContent = onDeviceModelsContent,
             desktopLikeLayout = desktopLikeLayout,
             languagePreference = languagePreference,
             onLanguagePreferenceSelected = onLanguagePreferenceSelected,
@@ -115,8 +128,10 @@ private fun FeatureNavHost(
         onSelectChatTab: () -> Unit,
         onOpenApiConfig: () -> Unit,
         onOpenModelSettings: () -> Unit,
+        onOpenOnDeviceModels: () -> Unit,
         embeddedApiConfigContent: @Composable () -> Unit,
         embeddedModelSettingsContent: @Composable () -> Unit,
+        embeddedOnDeviceModelsContent: @Composable () -> Unit,
     ) -> Unit,
     historyContent: @Composable (
         onNewConversation: () -> Unit,
@@ -136,6 +151,10 @@ private fun FeatureNavHost(
         onOpenApiConfig: () -> Unit,
         embeddedMode: Boolean,
     ) -> Unit,
+    onDeviceModelsContent: @Composable (
+        onBack: () -> Unit,
+        embeddedMode: Boolean,
+    ) -> Unit,
     desktopLikeLayout: Boolean,
     languagePreference: String,
     onLanguagePreferenceSelected: (String) -> Unit,
@@ -147,6 +166,7 @@ private fun FeatureNavHost(
                 History.routePattern -> History.routePattern
                 ApiConfig.routePattern -> ApiConfig.routePattern
                 ModelSettings.routePattern -> ModelSettings.routePattern
+                OnDeviceModels.routePattern -> OnDeviceModels.routePattern
                 else -> Chat.routePattern
             },
         )
@@ -154,6 +174,7 @@ private fun FeatureNavHost(
     val desktopPanelRoute = when (selectedRoute) {
         ApiConfig.routePattern -> ApiConfig.routePattern
         ModelSettings.routePattern -> ModelSettings.routePattern
+        OnDeviceModels.routePattern -> OnDeviceModels.routePattern
         else -> Chat.routePattern
     }
     val navStartDestination = if (desktopLikeLayout && startDestination.routePattern != History.routePattern) {
@@ -174,6 +195,7 @@ private fun FeatureNavHost(
                 { selectedRoute = Chat.routePattern },
                 { selectedRoute = ApiConfig.routePattern },
                 { selectedRoute = ModelSettings.routePattern },
+                { selectedRoute = OnDeviceModels.routePattern },
                 {
                     apiConfigContent(
                         {},
@@ -187,6 +209,12 @@ private fun FeatureNavHost(
                         {},
                         { navController.navigate(History.routePattern) },
                         { selectedRoute = ApiConfig.routePattern },
+                        true,
+                    )
+                },
+                {
+                    onDeviceModelsContent(
+                        {},
                         true,
                     )
                 },
@@ -219,6 +247,14 @@ private fun FeatureNavHost(
                         navController.navigate(Chat.routePattern)
                     } else {
                         navController.navigate(ModelSettings.routePattern)
+                    }
+                },
+                onOpenOnDeviceModels = {
+                    selectedRoute = OnDeviceModels.routePattern
+                    if (desktopLikeLayout) {
+                        navController.navigate(Chat.routePattern)
+                    } else {
+                        navController.navigate(OnDeviceModels.routePattern)
                     }
                 },
             )
@@ -286,6 +322,16 @@ private fun FeatureNavHost(
                     {
                         selectedRoute = ApiConfig.routePattern
                         navController.navigate(ApiConfig.routePattern)
+                    },
+                    false,
+                )
+            }
+            composable(OnDeviceModels.routePattern) {
+                selectedRoute = OnDeviceModels.routePattern
+                onDeviceModelsContent(
+                    {
+                        selectedRoute = Chat.routePattern
+                        navController.navigate(Chat.routePattern)
                     },
                     false,
                 )

@@ -8,7 +8,6 @@ import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.data.llm.LlmCompletionRequest
 import com.hrm.breeze.data.llm.LlmProvider
 import com.hrm.breeze.data.llm.LlmProviderRegistry
-import com.hrm.breeze.data.llm.LocalProvider
 import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.data.storage.BreezeDatabase
 import com.hrm.breeze.data.storage.createPlatformDatabaseBuilder
@@ -39,7 +38,8 @@ class ChatRepositoryImplJvmTest {
         val tempDirectory = Files.createTempDirectory("breeze-chat-repository-test")
         val database = createDatabase(tempDirectory.toString(), dispatchers)
         val settings = createSettings(tempDirectory.toString())
-        val providerRegistry = LlmProviderRegistry(listOf(LocalProvider()))
+        val modelConfigRepository = ModelConfigRepositoryImpl(database, settings, clock = Clock.System)
+        val providerRegistry = LlmProviderRegistry(listOf(TestLocalProvider()))
         val clock =
             SequenceClock(
                 instants =
@@ -52,13 +52,18 @@ class ChatRepositoryImplJvmTest {
             ChatRepositoryImpl(
                 database = database,
                 llmProviderRegistry = providerRegistry,
+                modelConfigRepository = modelConfigRepository,
                 settings = settings,
                 dispatchers = dispatchers,
                 clock = clock,
             )
 
-        settings.updateCurrentProviderId(LlmProviderId.Local)
-        settings.updateCurrentModelId("mock-model")
+        modelConfigRepository.createAndActivateConfig(
+            providerId = LlmProviderId.Local,
+            endpoint = "local://runtime",
+            apiToken = null,
+            modelId = "mock-model",
+        )
         advanceUntilIdle()
 
         try {
@@ -98,6 +103,7 @@ class ChatRepositoryImplJvmTest {
         val tempDirectory = Files.createTempDirectory("breeze-chat-repository-stream-test")
         val database = createDatabase(tempDirectory.toString(), dispatchers)
         val settings = createSettings(tempDirectory.toString())
+        val modelConfigRepository = ModelConfigRepositoryImpl(database, settings, clock = Clock.System)
         val providerRegistry = LlmProviderRegistry(listOf(StreamingLocalProvider()))
         val clock =
             SequenceClock(
@@ -111,13 +117,18 @@ class ChatRepositoryImplJvmTest {
             ChatRepositoryImpl(
                 database = database,
                 llmProviderRegistry = providerRegistry,
+                modelConfigRepository = modelConfigRepository,
                 settings = settings,
                 dispatchers = dispatchers,
                 clock = clock,
             )
 
-        settings.updateCurrentProviderId(LlmProviderId.Local)
-        settings.updateCurrentModelId("mock-model")
+        modelConfigRepository.createAndActivateConfig(
+            providerId = LlmProviderId.Local,
+            endpoint = "local://runtime",
+            apiToken = null,
+            modelId = "mock-model",
+        )
         advanceUntilIdle()
 
         try {
@@ -179,14 +190,19 @@ private class SequenceClock(
 private class StreamingLocalProvider : LlmProvider {
     override val id: LlmProviderId = LlmProviderId.Local
 
-    override suspend fun complete(request: LlmCompletionRequest): String =
-        error("StreamingLocalProvider.complete should not be used in this test")
-
     override fun stream(request: LlmCompletionRequest) = flowOf(
         "Breeze ",
         "local(",
         request.model.id,
         "): ",
         request.messages.last().content,
+    )
+}
+
+private class TestLocalProvider : LlmProvider {
+    override val id: LlmProviderId = LlmProviderId.Local
+
+    override fun stream(request: LlmCompletionRequest) = flowOf(
+        "Breeze local(${request.model.id}): ${request.messages.last().content}",
     )
 }

@@ -6,11 +6,13 @@
     <string name="history_list">History</string>
     <string name="api_config">API Config</string>
     <string name="model_settings">Model Settings</string>
+    <string name="on_device_models">On-device Models</string>
     <string name="more_features">More</string>
     <string name="current_chat_description">Return to the main chat workspace</string>
     <string name="history_description">Open saved conversations</string>
     <string name="api_config_description">Open provider and authentication settings</string>
     <string name="model_settings_description">Open model parameters and output preferences</string>
+    <string name="on_device_models_description">Download, delete, and select built-in local models</string>
     <string name="more_features_description">Reserved for more tabs</string>
     <string name="app_language">App Language</string>
     <string name="app_language_description">Follow the system by default, or pin a language</string>
@@ -46,6 +48,9 @@
     <string name="cancel">Cancel</string>
     <string name="saving">Saving...</string>
     <string name="save">Save</string>
+    <string name="download">Download</string>
+    <string name="delete_model">Delete</string>
+    <string name="set_current_model">Set Current</string>
     <string name="model_parameters">Model Parameters</string>
     <string name="preview_parameter_layout">Preview parameter layout</string>
     <string name="adjust_model_parameters">Adjust model parameters to control response behavior.</string>
@@ -75,6 +80,7 @@
     <string name="composer_placeholder">Message or type / to choose a skill</string>
     <string name="quick">Quick</string>
     <string name="reasoning_mode">Reasoning</string>
+    <string name="reasoning_process">Reasoning Process</string>
     <string name="writing">Writing</string>
     <string name="code">Code</string>
     <string name="sending">Sending</string>
@@ -107,6 +113,14 @@
     <string name="status_test_connection_success">Connection test succeeded.</string>
     <string name="status_test_connection_failed">Connection test failed. Please verify the API key, Base URL, and model ID.</string>
     <string name="status_save_failed">Save failed. Please try again later.</string>
+    <string name="status_download_failed">Download failed. Please try again later.</string>
+    <string name="status_downloaded">Downloaded</string>
+    <string name="status_downloading">Downloading</string>
+    <string name="status_not_downloaded">Not downloaded</string>
+    <string name="status_local_model_selected">Current on-device model updated.</string>
+    <string name="status_local_model_deleted">Local model deleted.</string>
+    <string name="status_local_model_download_started">Model download completed.</string>
+    <string name="status_local_model_not_ready">Please download and select an on-device model before sending a message.</string>
     <string name="status_model_reset">Restored the last saved model selection.</string>
     <string name="status_model_id_required">Model ID is required.</string>
     <string name="status_model_saved">Model settings saved.</string>

@@ -24,6 +24,7 @@ data class MessageEntity(
     val conversationId: String,
     val role: String,
     val content: String,
+    val reasoningContent: String? = null,
     val createdAtEpochMillis: Long,
 )
 
@@ -32,6 +33,7 @@ fun MessageEntity.toDomain(): Message = Message(
     conversationId = conversationId,
     role = role.toDomainRole(),
     content = content,
+    reasoningContent = reasoningContent,
     createdAt = Instant.fromEpochMilliseconds(createdAtEpochMillis),
 )
 

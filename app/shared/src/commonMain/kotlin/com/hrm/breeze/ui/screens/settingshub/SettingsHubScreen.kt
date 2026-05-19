@@ -39,6 +39,7 @@ fun SettingsHubScreen(
     onOpenHistory: () -> Unit,
     onOpenApiConfig: () -> Unit,
     onOpenModelSettings: () -> Unit,
+    onOpenOnDeviceModels: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -122,6 +123,12 @@ fun SettingsHubScreen(
                     description = stringResource(Res.string.model_settings_description),
                     selected = selectedRoute == "model-settings",
                     onClick = onOpenModelSettings,
+                )
+                SettingsHubItem(
+                    title = stringResource(Res.string.on_device_models),
+                    description = stringResource(Res.string.on_device_models_description),
+                    selected = selectedRoute == "on-device-models",
+                    onClick = onOpenOnDeviceModels,
                 )
                 SettingsHubItem(
                     title = stringResource(Res.string.more_features),

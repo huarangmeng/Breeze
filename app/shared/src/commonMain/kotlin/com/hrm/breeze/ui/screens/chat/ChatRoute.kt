@@ -14,8 +14,10 @@ fun ChatRoute(
     onSelectChatTab: () -> Unit = {},
     onOpenApiConfig: () -> Unit = {},
     onOpenModelSettings: () -> Unit = {},
+    onOpenOnDeviceModels: () -> Unit = {},
     embeddedApiConfigContent: @Composable () -> Unit = {},
     embeddedModelSettingsContent: @Composable () -> Unit = {},
+    embeddedOnDeviceModelsContent: @Composable () -> Unit = {},
     viewModel: ChatViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.state.collectAsState()
@@ -34,7 +36,9 @@ fun ChatRoute(
         onSelectChatTab = onSelectChatTab,
         onOpenApiConfig = onOpenApiConfig,
         onOpenModelSettings = onOpenModelSettings,
+        onOpenOnDeviceModels = onOpenOnDeviceModels,
         embeddedApiConfigContent = embeddedApiConfigContent,
         embeddedModelSettingsContent = embeddedModelSettingsContent,
+        embeddedOnDeviceModelsContent = embeddedOnDeviceModelsContent,
     )
 }
