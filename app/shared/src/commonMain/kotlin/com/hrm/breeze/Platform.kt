@@ -27,3 +27,5 @@ val platformInfo by lazy {
 }
 
 internal expect fun getPlatform(): PlatformInfo
+
+internal expect fun getSystemLanguageTag(): String

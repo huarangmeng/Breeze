@@ -1,9 +1,9 @@
 package com.hrm.breeze.ui.screens.settingshub
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,11 +24,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.hrm.breeze.generated.resources.*
+import com.hrm.breeze.i18n.BreezeLanguagePreference
+import com.hrm.breeze.i18n.languagePreferenceLabelRes
 import com.hrm.breeze.ui.theme.BreezeTheme
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun SettingsHubScreen(
     selectedRoute: String,
+    languagePreference: String,
+    onLanguagePreferenceSelected: (String) -> Unit,
     onBackToChat: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenApiConfig: () -> Unit,
@@ -42,6 +50,7 @@ fun SettingsHubScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
@@ -58,18 +67,18 @@ fun SettingsHubScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onBackToChat, shape = shapes.pill) {
-                    Text("返回")
+                    Text(stringResource(Res.string.back))
                 }
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = "设置",
+                        text = stringResource(Res.string.settings),
                         style = typography.titleMedium,
                         color = scheme.onSurface,
                     )
                     Text(
-                        text = "选择要进入的功能页",
+                        text = stringResource(Res.string.settings_subtitle),
                         style = typography.bodySmall,
                         color = extra.textSecondary,
                     )
@@ -91,35 +100,72 @@ fun SettingsHubScreen(
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 SettingsHubItem(
-                    title = "当前对话",
-                    description = "返回主对话工作区",
+                    title = stringResource(Res.string.current_chat),
+                    description = stringResource(Res.string.current_chat_description),
                     selected = selectedRoute == "chat",
                     onClick = onBackToChat,
                 )
                 SettingsHubItem(
-                    title = "历史列表",
-                    description = "进入历史路由并查看会话列表",
+                    title = stringResource(Res.string.history_list),
+                    description = stringResource(Res.string.history_description),
                     selected = selectedRoute == "history",
                     onClick = onOpenHistory,
                 )
                 SettingsHubItem(
-                    title = "API 配置",
-                    description = "打开 Provider 与鉴权配置页",
+                    title = stringResource(Res.string.api_config),
+                    description = stringResource(Res.string.api_config_description),
                     selected = selectedRoute == "api-config",
                     onClick = onOpenApiConfig,
                 )
                 SettingsHubItem(
-                    title = "模型设置",
-                    description = "打开模型参数与输出偏好页",
+                    title = stringResource(Res.string.model_settings),
+                    description = stringResource(Res.string.model_settings_description),
                     selected = selectedRoute == "model-settings",
                     onClick = onOpenModelSettings,
                 )
                 SettingsHubItem(
-                    title = "更多能力",
-                    description = "后续用于承载更多 tab",
+                    title = stringResource(Res.string.more_features),
+                    description = stringResource(Res.string.more_features_description),
                     selected = false,
                     onClick = {},
                 )
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = scheme.surface,
+            shape = shapes.large,
+            border = BorderStroke(spacing.hairline, scheme.outlineVariant),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(spacing.md),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                Text(
+                    text = stringResource(Res.string.app_language),
+                    style = typography.titleMedium,
+                    color = scheme.onSurface,
+                )
+                Text(
+                    text = stringResource(Res.string.app_language_description),
+                    style = typography.bodySmall,
+                    color = extra.textSecondary,
+                )
+                BreezeLanguagePreference.entries.forEach { preference ->
+                    SettingsHubItem(
+                        title = stringResource(languagePreferenceLabelRes(preference)),
+                        description = if (preference == BreezeLanguagePreference.System) {
+                            stringResource(Res.string.follow_system)
+                        } else {
+                            preference.storageValue
+                        },
+                        selected = BreezeLanguagePreference.fromStorageValue(languagePreference) == preference,
+                        onClick = { onLanguagePreferenceSelected(preference.storageValue) },
+                    )
+                }
             }
         }
     }

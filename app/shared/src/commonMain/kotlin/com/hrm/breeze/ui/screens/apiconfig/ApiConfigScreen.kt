@@ -28,9 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import com.hrm.breeze.domain.model.LlmProviderId
+import com.hrm.breeze.generated.resources.*
+import com.hrm.breeze.i18n.providerDescriptionRes
+import com.hrm.breeze.i18n.providerNoticeRes
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.theme.BreezeTheme
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun ApiConfigScreen(
@@ -119,7 +124,7 @@ fun ApiConfigScreen(
                             state = state,
                             onProviderSelected = onProviderSelected,
                         )
-                        ProviderNoticeCard(state.providerNotice)
+                        ProviderNoticeCard(state.selectedProviderId)
                         ApiActionSection(
                             state = state,
                             onReset = onReset,
@@ -167,17 +172,17 @@ private fun ApiConfigTopBar(
             verticalArrangement = Arrangement.spacedBy(spacing.xxs),
         ) {
             Text(
-                text = "API Configuration",
+                text = stringResource(Res.string.api_configuration),
                 style = typography.titleLarge,
                 color = scheme.onBackground,
             )
             Text(
-                text = if (previewMode) "Preview provider settings" else "Enter your API details to connect to the model service.",
+                text = if (previewMode) stringResource(Res.string.preview_provider_settings) else stringResource(Res.string.api_details_subtitle),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
             )
             Text(
-                text = "Current Provider: ${state.selectedProviderId.displayName}",
+                text = stringResource(Res.string.current_provider, state.selectedProviderId.displayName),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
             )
@@ -212,12 +217,12 @@ private fun ApiIntroSection() {
             verticalArrangement = Arrangement.spacedBy(spacing.xxs),
         ) {
             Text(
-                text = "Configure Your API",
+                text = stringResource(Res.string.configure_your_api),
                 style = typography.titleMedium,
                 color = scheme.onSurface,
             )
             Text(
-                text = "Your API configuration is stored locally on this device and is never uploaded.",
+                text = stringResource(Res.string.api_stored_locally),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
             )
@@ -245,13 +250,13 @@ private fun ApiFieldSection(
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.isSaving,
             shape = shapes.input,
-            label = { Text("API Key") },
+            label = { Text(stringResource(Res.string.api_key)) },
             visualTransformation = if (tokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 TextButton(
                     onClick = { onTokenVisibilityChange(!tokenVisible) },
                 ) {
-                    Text(if (tokenVisible) "Hide" else "Show")
+                    Text(if (tokenVisible) stringResource(Res.string.hide) else stringResource(Res.string.show))
                 }
             },
         )
@@ -262,7 +267,7 @@ private fun ApiFieldSection(
             modifier = Modifier.fillMaxWidth(),
             enabled = !state.isSaving,
             shape = shapes.input,
-            label = { Text("Base URL") },
+            label = { Text(stringResource(Res.string.base_url)) },
             placeholder = { Text("https://api.example.com/v1") },
         )
     }
@@ -283,7 +288,7 @@ private fun ProviderGrid(
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Text(
-            text = "Model Type",
+            text = stringResource(Res.string.model_type),
             style = typography.labelLarge,
             color = scheme.onSurface,
         )
@@ -314,11 +319,11 @@ private fun ProviderGrid(
                             color = if (selected) scheme.primary else scheme.onSurface,
                         )
                         Text(
-                            text = providerDescription(providerId),
+                            text = stringResource(providerDescriptionRes(providerId)),
                             style = typography.bodySmall,
                             color = extra.textSecondary,
                             maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -329,7 +334,7 @@ private fun ProviderGrid(
 
 @Composable
 private fun ProviderNoticeCard(
-    notice: String,
+    providerId: LlmProviderId,
 ) {
     val scheme = MaterialTheme.colorScheme
     val shapes = BreezeTheme.shapes
@@ -343,7 +348,7 @@ private fun ProviderNoticeCard(
         border = BorderStroke(spacing.hairline, scheme.outlineVariant),
     ) {
         Text(
-            text = notice,
+            text = stringResource(providerNoticeRes(providerId)),
             modifier = Modifier.padding(spacing.md),
             style = typography.bodySmall,
             color = extra.textSecondary,
@@ -366,9 +371,9 @@ private fun ApiActionSection(
     Column(
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        if (state.statusMessage != null) {
+        state.statusMessage?.let { statusMessage ->
             Text(
-                text = state.statusMessage,
+                text = stringResource(statusMessage),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
             )
@@ -387,7 +392,7 @@ private fun ApiActionSection(
                     contentColor = scheme.primary,
                 ),
             ) {
-                Text("Test Connection")
+                Text(stringResource(Res.string.test_connection))
             }
 
             Row(
@@ -402,7 +407,7 @@ private fun ApiActionSection(
                         contentColor = scheme.onSurface,
                     ),
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(Res.string.cancel))
                 }
                 Button(
                     onClick = onSave,
@@ -413,17 +418,11 @@ private fun ApiActionSection(
                         contentColor = scheme.onPrimary,
                     ),
                 ) {
-                    Text(if (state.isSaving) "Saving..." else "Save")
+                    Text(if (state.isSaving) stringResource(Res.string.saving) else stringResource(Res.string.save))
                 }
             }
         }
     }
-}
-
-private fun providerDescription(providerId: LlmProviderId): String = when (providerId) {
-    LlmProviderId.Local -> "Local echo chain"
-    LlmProviderId.OpenAI -> "Hosted provider"
-    LlmProviderId.Anthropic -> "Hosted provider"
 }
 
 internal fun previewApiConfigUiState(): ApiConfigUiState =
@@ -432,5 +431,4 @@ internal fun previewApiConfigUiState(): ApiConfigUiState =
         endpoint = "https://api.openai.com/v1",
         apiToken = "sk-preview-token",
         hasUnsavedChanges = true,
-        providerNotice = "OpenAI 当前仍走兼容桥接；切换 Provider 的交互和持久化已经接通。",
     )

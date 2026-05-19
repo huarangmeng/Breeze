@@ -38,6 +38,7 @@
 - [design/theme-tokens.md](design/theme-tokens.md)：主题 token 基线（颜色、圆角、间距、字型与扩展规则）
 - [design/responsive.md](design/responsive.md)：响应式基线（官方 adaptive、WindowInfo 包装层与布局切换规则）
 - [design/navigation.md](design/navigation.md)：导航结构、根布局、返回栈策略与深链边界
+- [design/i18n.md](design/i18n.md)：i18n 语言范围、系统语言回退策略与 UI 接入方式
 - [platform/persistence-paths.md](platform/persistence-paths.md)：跨平台持久化路径策略（Room3 / DataStore 的目录约束与平台映射）
 
 ## 根目录保留项

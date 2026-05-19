@@ -1,5 +1,7 @@
 package com.hrm.breeze
 
+import java.util.Locale
+
 internal actual fun getPlatform(): PlatformInfo {
     val osName = System.getProperty("os.name").orEmpty()
     val javaVersion = System.getProperty("java.version").orEmpty()
@@ -14,3 +16,6 @@ internal actual fun getPlatform(): PlatformInfo {
         displayName = "$osName / Java $javaVersion",
     )
 }
+
+internal actual fun getSystemLanguageTag(): String =
+    Locale.getDefault().toLanguageTag().ifBlank { "en" }

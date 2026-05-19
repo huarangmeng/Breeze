@@ -19,7 +19,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,9 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import com.hrm.breeze.domain.model.Conversation
 import com.hrm.breeze.domain.model.Message
+import com.hrm.breeze.generated.resources.*
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.adaptive.PaneMode
 import com.hrm.breeze.ui.theme.BreezeTheme
+import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
 
 @Composable
@@ -135,17 +136,17 @@ private fun CompactHistoryHeader(
                     containerColor = scheme.surface,
                     contentColor = scheme.onSurface,
                 ),
-            ) { Text("返回") }
+            ) { Text(stringResource(Res.string.back)) }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "历史列表",
+                    text = stringResource(Res.string.history_list),
                     style = typography.titleMedium,
                     color = scheme.onSurface,
                 )
                 Text(
-                    text = if (previewMode) "Preview history route" else "查看本地保存的历史对话",
+                    text = if (previewMode) stringResource(Res.string.history_preview_route) else stringResource(Res.string.history_local_subtitle),
                     style = typography.bodySmall,
                     color = extra.textSecondary,
                 )
@@ -157,7 +158,7 @@ private fun CompactHistoryHeader(
                     containerColor = scheme.primaryContainer,
                     contentColor = scheme.primary,
                 ),
-            ) { Text("新建") }
+            ) { Text(stringResource(Res.string.new_chat)) }
         }
     }
 }
@@ -191,12 +192,12 @@ private fun HistorySidebar(
                 verticalArrangement = Arrangement.spacedBy(spacing.xxs),
             ) {
                 Text(
-                    text = "Chat History",
+                    text = stringResource(Res.string.history_sidebar_title),
                     style = typography.titleLarge,
                     color = scheme.onSurface,
                 )
                 Text(
-                    text = if (previewMode) "Preview layout" else "历史会话保存在本地设备中",
+                    text = if (previewMode) stringResource(Res.string.history_preview_layout) else stringResource(Res.string.history_local_subtitle),
                     style = typography.bodySmall,
                     color = extra.textSecondary,
                 )
@@ -211,7 +212,7 @@ private fun HistorySidebar(
                     contentColor = scheme.onPrimary,
                 ),
             ) {
-                Text("+  New Chat")
+                Text("+  ${stringResource(Res.string.new_chat)}")
             }
 
             Surface(
@@ -220,7 +221,7 @@ private fun HistorySidebar(
                 border = BorderStroke(spacing.hairline, scheme.outlineVariant),
             ) {
                 Text(
-                    text = "Your conversations are stored locally on this device.",
+                    text = stringResource(Res.string.conversations_stored_locally),
                     modifier = Modifier.padding(spacing.md),
                     style = typography.bodySmall,
                     color = extra.textSecondary,
@@ -249,6 +250,9 @@ private fun HistoryListPanel(
     val spacing = BreezeTheme.spacing
     val typography = BreezeTheme.typography
     val extra = BreezeTheme.extendedColors
+    val yesterday = stringResource(Res.string.yesterday)
+    val recent7Days = stringResource(Res.string.recent_7_days)
+    val recent30Days = stringResource(Res.string.recent_30_days)
 
     Surface(
         modifier = modifier.fillMaxHeight(),
@@ -268,7 +272,7 @@ private fun HistoryListPanel(
                 modifier = Modifier.fillMaxWidth(),
                 shape = shapes.input,
                 placeholder = {
-                    Text("Search conversations...")
+                    Text(stringResource(Res.string.search_conversations))
                 },
             )
 
@@ -280,7 +284,7 @@ private fun HistoryListPanel(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "没有匹配的会话记录。",
+                        text = stringResource(Res.string.no_matched_conversations),
                         style = typography.bodyMedium,
                         color = extra.textSecondary,
                     )
@@ -297,7 +301,7 @@ private fun HistoryListPanel(
                         HistoryConversationItem(
                             conversation = conversation,
                             selected = conversation.id == activeConversationId,
-                            timeLabel = historyTimeLabel(index),
+                            timeLabel = historyTimeLabel(index, yesterday, recent7Days, recent30Days),
                             onClick = { onConversationSelected(conversation.id) },
                         )
                     }
@@ -372,7 +376,7 @@ private fun HistoryConversationItem(
                     )
                 }
                 Text(
-                    text = "Model: ${conversation.modelId}",
+                    text = stringResource(Res.string.model_label, conversation.modelId),
                     style = typography.bodyMedium,
                     color = extra.textSecondary,
                     maxLines = 1,
@@ -412,17 +416,17 @@ private fun HistoryDetailPanel(
             verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             Text(
-                text = "Local Summary",
+                text = stringResource(Res.string.local_summary),
                 style = typography.labelLarge,
                 color = scheme.onSurface,
             )
             Text(
-                text = "会话 ${state.conversations.size} 个，当前消息 ${state.messages.size} 条",
+                text = stringResource(Res.string.conversation_count_summary, state.conversations.size, state.messages.size),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
             )
             Text(
-                text = state.latestMessagePreview ?: "选择会话后，这里会显示最近一条消息摘要。",
+                text = state.latestMessagePreview ?: stringResource(Res.string.latest_message_empty),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
                 maxLines = 4,
@@ -432,13 +436,13 @@ private fun HistoryDetailPanel(
     }
 }
 
-private fun historyTimeLabel(index: Int): String = when (index) {
+private fun historyTimeLabel(index: Int, yesterday: String, recent7Days: String, recent30Days: String): String = when (index) {
     0 -> "10:30 AM"
-    1 -> "Yesterday"
-    2 -> "2 days ago"
-    3 -> "3 days ago"
-    4 -> "5 days ago"
-    else -> "1 week ago"
+    1 -> yesterday
+    2 -> recent7Days
+    3 -> recent7Days
+    4 -> recent7Days
+    else -> recent30Days
 }
 
 internal fun previewHistoryUiState(): HistoryUiState {

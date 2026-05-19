@@ -73,3 +73,10 @@ kotlin {
         }
     }
 }
+
+
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "com.hrm.breeze.generated.resources"
+    generateResClass = always
+}

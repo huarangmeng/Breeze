@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -15,10 +17,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -27,6 +31,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,10 +45,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.hrm.breeze.getPlatform
 import com.hrm.breeze.data.settings.BreezeSettingsSnapshot
+import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.domain.model.Conversation
 import com.hrm.breeze.domain.model.Message
+import com.hrm.breeze.generated.resources.*
+import com.hrm.breeze.i18n.promptSuggestionTexts
+import org.jetbrains.compose.resources.stringResource
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.adaptive.PaneMode
+import com.hrm.breeze.ui.adaptive.WidthClass
 import com.hrm.breeze.ui.navigation.ApiConfig
 import com.hrm.breeze.ui.navigation.Chat
 import com.hrm.breeze.ui.navigation.ModelSettings
@@ -53,6 +66,7 @@ fun ChatScreen(
     onDraftChange: (String) -> Unit,
     onConversationSelected: (String) -> Unit,
     onNewConversation: () -> Unit,
+    onModelSelected: (String) -> Unit,
     onSendMessage: () -> Unit,
     selectedDesktopRoute: String = Chat.routePattern,
     onOpenSettings: () -> Unit,
@@ -76,8 +90,10 @@ fun ChatScreen(
             state = state,
             onDraftChange = onDraftChange,
             onNewConversation = onNewConversation,
+            onModelSelected = onModelSelected,
             onSendMessage = onSendMessage,
             onOpenSettings = onOpenSettings,
+            onOpenModelSettings = onOpenModelSettings,
             modifier = modifier.padding(spacing.md),
             previewMode = previewMode,
         )
@@ -98,7 +114,7 @@ fun ChatScreen(
             onSelectChatTab = onSelectChatTab,
             leadingInset = macSidebarLeadingInset,
             topInset = macSidebarTopInset,
-            modifier = Modifier.weight(0.24f),
+            modifier = Modifier.width(320.dp),
         )
         Box(
             modifier = Modifier
@@ -111,11 +127,13 @@ fun ChatScreen(
             onDraftChange = onDraftChange,
             onSendMessage = onSendMessage,
             onNewConversation = onNewConversation,
+            onModelSelected = onModelSelected,
             selectedDesktopRoute = selectedDesktopRoute,
-            modifier = Modifier.weight(0.76f),
+            modifier = Modifier.weight(1f),
             previewMode = previewMode,
             compactMode = false,
             onOpenSettings = onOpenSettings,
+            onOpenModelSettings = onOpenModelSettings,
             desktopTopInset = macHeaderTopInset,
             embeddedApiConfigContent = embeddedApiConfigContent,
             embeddedModelSettingsContent = embeddedModelSettingsContent,
@@ -128,8 +146,10 @@ private fun CompactChatLayout(
     state: ChatUiState,
     onDraftChange: (String) -> Unit,
     onNewConversation: () -> Unit,
+    onModelSelected: (String) -> Unit,
     onSendMessage: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenModelSettings: () -> Unit,
     modifier: Modifier = Modifier,
     previewMode: Boolean,
 ) {
@@ -143,13 +163,15 @@ private fun CompactChatLayout(
             state = state,
             onOpenSettings = onOpenSettings,
             onNewConversation = onNewConversation,
-            previewMode = previewMode,
+            onModelSelected = onModelSelected,
+            onOpenModelSettings = onOpenModelSettings,
         )
         ChatMainPanel(
             state = state,
             onDraftChange = onDraftChange,
             onSendMessage = onSendMessage,
             onNewConversation = onNewConversation,
+            onModelSelected = onModelSelected,
             onOpenSettings = onOpenSettings,
             selectedDesktopRoute = Chat.routePattern,
             desktopTopInset = 0.dp,
@@ -158,6 +180,7 @@ private fun CompactChatLayout(
             compactMode = true,
             modifier = Modifier.weight(1f),
             previewMode = previewMode,
+            onOpenModelSettings = onOpenModelSettings,
         )
     }
 }
@@ -184,111 +207,158 @@ private fun DesktopSidebar(
     Column(
         modifier = modifier
             .fillMaxHeight()
-            .background(scheme.surfaceVariant.copy(alpha = 0.72f))
+            .background(extra.sidebarBackground)
             .padding(
-                start = spacing.sm,
-                top = spacing.md + topInset,
-                end = spacing.sm,
-                bottom = spacing.md,
+                start = spacing.md,
+                top = spacing.lg + topInset,
+                end = spacing.md,
+                bottom = spacing.lg,
             ),
-        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    start = spacing.xs + leadingInset,
+                    start = leadingInset,
                     top = spacing.xs,
-                    end = spacing.xs,
+                    end = 0.dp,
                     bottom = spacing.xs,
                 ),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(42.dp)
                     .clip(shapes.pill)
                     .background(scheme.primaryContainer),
             )
-            Text(
-                text = "Breeze",
-                style = typography.titleMedium,
-                color = scheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(spacing.micro),
+            ) {
+                Text(
+                    text = "Breeze",
+                    style = typography.titleMedium,
+                    color = scheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
-
-        SidebarActionItem(
-            label = "当前对话",
-            selected = selectedDesktopRoute == Chat.routePattern,
-            onClick = onSelectChatTab,
-        )
-        SidebarActionItem(
-            label = "API 配置",
-            selected = selectedDesktopRoute == ApiConfig.routePattern,
-            onClick = onOpenApiConfig,
-        )
-        SidebarActionItem(
-            label = "模型设置",
-            selected = selectedDesktopRoute == ModelSettings.routePattern,
-            onClick = onOpenModelSettings,
-        )
-        SidebarActionItem(
-            label = "更多能力",
-            selected = false,
-            onClick = {},
-        )
 
         Button(
             onClick = onNewConversation,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = spacing.xs),
+            modifier = Modifier.fillMaxWidth(),
             shape = shapes.medium,
             colors = ButtonDefaults.buttonColors(
-                containerColor = scheme.primaryContainer,
-                contentColor = scheme.primary,
+                containerColor = scheme.primary,
+                contentColor = scheme.onPrimary,
             ),
         ) {
-            Text("新对话")
+            Text(stringResource(Res.string.new_chat))
         }
 
         Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            SidebarActionItem(
+                label = stringResource(Res.string.current_chat),
+                selected = selectedDesktopRoute == Chat.routePattern,
+                onClick = onSelectChatTab,
+            )
+            SidebarActionItem(
+                label = stringResource(Res.string.api_config),
+                selected = selectedDesktopRoute == ApiConfig.routePattern,
+                onClick = onOpenApiConfig,
+            )
+            SidebarActionItem(
+                label = stringResource(Res.string.model_settings),
+                selected = selectedDesktopRoute == ModelSettings.routePattern,
+                onClick = onOpenModelSettings,
+            )
+            SidebarActionItem(
+                label = stringResource(Res.string.more_features),
+                selected = false,
+                onClick = {},
+            )
+        }
+
+        HistorySidebarSection(
+            conversations = state.conversations,
+            activeConversationId = state.activeConversationId,
+            onConversationSelected = onConversationSelected,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(top = spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(spacing.md),
+                .weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun HistorySidebarSection(
+    conversations: List<Conversation>,
+    activeConversationId: String,
+    onConversationSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val shapes = BreezeTheme.shapes
+    val spacing = BreezeTheme.spacing
+    val typography = BreezeTheme.typography
+    val extra = BreezeTheme.extendedColors
+
+    Surface(
+        modifier = modifier,
+        color = scheme.surface.copy(alpha = 0.42f),
+        shape = shapes.large,
+        border = BorderStroke(spacing.hairline, scheme.outlineVariant.copy(alpha = 0.54f)),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             Text(
-                text = "历史对话",
+                text = stringResource(Res.string.history_conversations),
+                modifier = Modifier.padding(horizontal = spacing.xs),
                 style = typography.labelLarge,
                 color = extra.textSecondary,
             )
-            if (state.conversations.isEmpty()) {
+
+            if (conversations.isEmpty()) {
                 Text(
-                    text = "发送第一条消息后，会话会出现在这里。",
+                    text = stringResource(Res.string.empty_history_hint),
+                    modifier = Modifier.padding(horizontal = spacing.xs),
                     style = typography.bodySmall,
                     color = extra.textSecondary,
                 )
             } else {
-                conversationSections(state.conversations).forEach { section ->
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(spacing.xs),
-                    ) {
-                        Text(
-                            text = section.title,
-                            style = typography.labelMedium,
-                            color = extra.textTertiary,
-                        )
-                        section.items.forEach { conversation ->
-                            ConversationListItem(
-                                conversation = conversation,
-                                selected = conversation.id == state.activeConversationId,
-                                onClick = { onConversationSelected(conversation.id) },
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(spacing.md),
+                ) {
+                    conversationSections(conversations).forEach { section ->
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                        ) {
+                            Text(
+                                text = section.title,
+                                modifier = Modifier.padding(horizontal = spacing.xs),
+                                style = typography.labelMedium,
+                                color = extra.textTertiary,
                             )
+                            section.items.forEach { conversation ->
+                                ConversationListItem(
+                                    conversation = conversation,
+                                    selected = conversation.id == activeConversationId,
+                                    onClick = { onConversationSelected(conversation.id) },
+                                )
+                            }
                         }
                     }
                 }
@@ -314,8 +384,13 @@ private fun SidebarActionItem(
             .fillMaxWidth()
             .clip(shapes.medium)
             .clickable(onClick = onClick),
-        color = if (selected) scheme.surface.copy(alpha = 0.88f) else scheme.surface.copy(alpha = 0f),
+        color = if (selected) extra.sidebarSelectedBackground else scheme.surface.copy(alpha = 0f),
         shape = shapes.medium,
+        border = if (selected) {
+            BorderStroke(spacing.hairline, scheme.outlineVariant.copy(alpha = 0.72f))
+        } else {
+            null
+        },
     ) {
         Row(
             modifier = Modifier
@@ -326,7 +401,7 @@ private fun SidebarActionItem(
         ) {
             Box(
                 modifier = Modifier
-                    .size(10.dp)
+                    .size(if (selected) 10.dp else 8.dp)
                     .clip(shapes.pill)
                     .background(if (selected) scheme.primary else scheme.outlineVariant),
             )
@@ -344,46 +419,66 @@ private fun CompactChatHeader(
     state: ChatUiState,
     onOpenSettings: () -> Unit,
     onNewConversation: () -> Unit,
-    previewMode: Boolean,
+    onModelSelected: (String) -> Unit,
+    onOpenModelSettings: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val shapes = BreezeTheme.shapes
+    val spacing = BreezeTheme.spacing
+
+    Surface(
+        color = scheme.surface.copy(alpha = 0f),
+        shape = shapes.pill,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = spacing.xs, vertical = spacing.xs),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            HeaderActionButton(label = "⚙", onClick = onOpenSettings)
+            ModelSwitcher(
+                state = state,
+                onModelSelected = onModelSelected,
+                onOpenModelSettings = onOpenModelSettings,
+                modifier = Modifier.widthIn(max = 180.dp),
+                compact = true,
+            )
+            HeaderActionButton(label = "+", onClick = onNewConversation)
+        }
+    }
+}
+
+@Composable
+private fun HeaderActionButton(
+    label: String,
+    onClick: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
     val typography = BreezeTheme.typography
-    val extra = BreezeTheme.extendedColors
 
     Surface(
-        color = scheme.surfaceVariant.copy(alpha = 0.48f),
-        shape = shapes.large,
-        border = BorderStroke(spacing.hairline, scheme.outlineVariant),
+        modifier = Modifier
+            .size(42.dp)
+            .clip(shapes.pill)
+            .clickable(onClick = onClick),
+        color = scheme.surface.copy(alpha = 0.92f),
+        shape = shapes.pill,
+        border = BorderStroke(spacing.hairline, scheme.outlineVariant.copy(alpha = 0.72f)),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = spacing.sm, vertical = spacing.sm),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
         ) {
-            TextButton(onClick = onOpenSettings, shape = shapes.pill) {
-                Text("设置")
-            }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = state.conversations.firstOrNull { it.id == state.activeConversationId }?.title ?: "新对话",
-                    style = typography.titleMedium,
-                    color = scheme.onSurface,
-                )
-                Text(
-                    text = if (previewMode) "Preview layout" else "内容由豆包 AI 生成，请仔细甄别",
-                    style = typography.bodySmall,
-                    color = extra.textSecondary,
-                )
-            }
-            TextButton(onClick = onNewConversation, shape = shapes.pill) {
-                Text("新建")
-            }
+            Text(
+                text = label,
+                style = typography.titleMedium,
+                color = scheme.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }
@@ -426,7 +521,7 @@ private fun ConversationListItem(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = conversationPreviewLabel(conversation),
+                text = stringResource(Res.string.model_label, conversation.modelId),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
                 maxLines = 1,
@@ -442,7 +537,9 @@ private fun ChatMainPanel(
     onDraftChange: (String) -> Unit,
     onSendMessage: () -> Unit,
     onNewConversation: () -> Unit,
+    onModelSelected: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenModelSettings: () -> Unit,
     selectedDesktopRoute: String,
     desktopTopInset: Dp,
     embeddedApiConfigContent: @Composable () -> Unit,
@@ -451,39 +548,44 @@ private fun ChatMainPanel(
     previewMode: Boolean,
     compactMode: Boolean,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
+    val extra = BreezeTheme.extendedColors
 
     Surface(
         modifier = modifier
             .fillMaxSize()
-            .background(scheme.surface.copy(alpha = 0.98f)),
-        color = scheme.surface.copy(alpha = 0.98f),
+            .background(extra.appShellBackground),
+        color = extra.appShellBackground,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    start = if (compactMode) spacing.md else spacing.xl,
+                    start = if (compactMode) spacing.sm else spacing.xl,
                     top = if (compactMode) spacing.sm else spacing.md + desktopTopInset,
-                    end = if (compactMode) spacing.md else spacing.xl,
-                    bottom = if (compactMode) spacing.md else spacing.lg,
+                    end = if (compactMode) spacing.sm else spacing.xl,
+                    bottom = if (compactMode) spacing.sm else spacing.lg,
                 ),
             verticalArrangement = Arrangement.spacedBy(spacing.md),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (!compactMode) {
                 DesktopWorkspaceHeader(
                     state = state,
-                    previewMode = previewMode,
                     selectedDesktopRoute = selectedDesktopRoute,
+                    onModelSelected = onModelSelected,
+                    onOpenModelSettings = onOpenModelSettings,
                 )
             }
             when {
                 compactMode || selectedDesktopRoute == Chat.routePattern -> {
                     MessageStage(
                         state = state,
-                        modifier = Modifier.weight(1f),
+                        onPromptSelected = onDraftChange,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .widthIn(max = if (compactMode) 720.dp else 980.dp),
                         previewMode = previewMode,
                     )
                     ComposerBar(
@@ -493,6 +595,9 @@ private fun ChatMainPanel(
                         onNewConversation = onNewConversation,
                         onOpenSettings = onOpenSettings,
                         compactMode = compactMode,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = if (compactMode) 720.dp else 1080.dp),
                     )
                 }
 
@@ -519,77 +624,250 @@ private fun ChatMainPanel(
 @Composable
 private fun DesktopWorkspaceHeader(
     state: ChatUiState,
-    previewMode: Boolean,
     selectedDesktopRoute: String,
+    onModelSelected: (String) -> Unit,
+    onOpenModelSettings: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val spacing = BreezeTheme.spacing
     val typography = BreezeTheme.typography
-    val extra = BreezeTheme.extendedColors
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .widthIn(max = 1120.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        Box(modifier = Modifier.width(72.dp))
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Text(
+            text = desktopHeaderTitle(selectedDesktopRoute, state),
+            style = typography.titleMedium,
+            color = scheme.onSurface,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        ModelSwitcher(
+            state = state,
+            onModelSelected = onModelSelected,
+            onOpenModelSettings = onOpenModelSettings,
+            modifier = Modifier.widthIn(max = 180.dp),
+            compact = true,
+        )
+    }
+}
+
+@Composable
+private fun desktopHeaderTitle(
+    selectedDesktopRoute: String,
+    state: ChatUiState,
+): String = when (selectedDesktopRoute) {
+    ApiConfig.routePattern -> stringResource(Res.string.api_config)
+    ModelSettings.routePattern -> stringResource(Res.string.model_settings)
+    else -> state.conversations.firstOrNull { it.id == state.activeConversationId }?.title ?: stringResource(Res.string.new_chat)
+}
+
+@Composable
+private fun ModelSwitcher(
+    state: ChatUiState,
+    onModelSelected: (String) -> Unit,
+    onOpenModelSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+    compact: Boolean,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val shapes = BreezeTheme.shapes
+    val spacing = BreezeTheme.spacing
+    val typography = BreezeTheme.typography
+    val extra = BreezeTheme.extendedColors
+    var expanded by remember { mutableStateOf(false) }
+    val options = modelOptionsFor(state.settings.currentProviderId)
+    val selectedTitle = options.firstOrNull { it.id == state.settings.currentModelId }?.title
+        ?: state.settings.currentModelId
+
+    Box(modifier = modifier) {
+        Surface(
+            modifier = Modifier
+                .widthIn(min = 116.dp, max = 176.dp)
+                .height(34.dp)
+                .clip(shapes.pill)
+                .clickable { expanded = true },
+            color = scheme.surface.copy(alpha = 0.86f),
+            shape = shapes.pill,
+            border = BorderStroke(spacing.hairline, extra.focusRing.copy(alpha = 0.42f)),
         ) {
-            Text(
-                text = desktopHeaderTitle(selectedDesktopRoute, state),
-                style = typography.titleMedium,
-                color = scheme.onSurface,
-            )
-            Text(
-                text = desktopHeaderSubtitle(selectedDesktopRoute, previewMode),
-                style = typography.bodySmall,
-                color = extra.textSecondary,
-            )
-        }
-        Box(
-            modifier = Modifier.width(112.dp),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            Surface(
-                color = scheme.surface.copy(alpha = 0.72f),
-                shape = BreezeTheme.shapes.pill,
-                border = BorderStroke(spacing.hairline, scheme.outlineVariant.copy(alpha = 0.5f)),
+            Row(
+                modifier = Modifier.padding(
+                    horizontal = spacing.sm,
+                    vertical = spacing.xxs,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (!compact) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(shapes.pill)
+                            .background(extra.success),
+                    )
+                }
+                if (compact) {
+                    Text(
+                        text = selectedTitle,
+                        modifier = Modifier.widthIn(max = 126.dp),
+                        style = typography.labelLarge,
+                        color = scheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(spacing.micro),
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.current_model),
+                            style = typography.labelMedium,
+                            color = scheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = "${state.settings.currentProviderId.displayName} / $selectedTitle",
+                            style = typography.bodySmall,
+                            color = extra.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
                 Text(
-                    text = "${state.settings.currentProviderId.displayName} · ${state.settings.currentModelId}",
-                    modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.xs),
+                    text = "▾",
                     style = typography.labelMedium,
-                    color = extra.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    color = scheme.primary,
                 )
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = scheme.surface,
+            tonalElevation = 0.dp,
+            shadowElevation = 10.dp,
+            shape = shapes.medium,
+        ) {
+            Column(
+                modifier = Modifier
+                    .width(220.dp)
+                    .padding(spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(spacing.xxs),
+            ) {
+                options.forEach { option ->
+                    ModelMenuItem(
+                        option = option,
+                        selected = option.id == state.settings.currentModelId,
+                        onClick = {
+                            expanded = false
+                            onModelSelected(option.id)
+                        },
+                    )
+                }
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(shapes.medium)
+                        .clickable {
+                            expanded = false
+                            onOpenModelSettings()
+                        },
+                    color = scheme.primaryContainer.copy(alpha = 0.58f),
+                    shape = shapes.medium,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.model_settings_menu),
+                        modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.sm),
+                        style = typography.labelLarge,
+                        color = scheme.primary,
+                    )
+                }
             }
         }
     }
 }
 
-private fun desktopHeaderTitle(
-    selectedDesktopRoute: String,
-    state: ChatUiState,
-): String = when (selectedDesktopRoute) {
-    ApiConfig.routePattern -> "API 配置"
-    ModelSettings.routePattern -> "模型设置"
-    else -> state.conversations.firstOrNull { it.id == state.activeConversationId }?.title ?: "新对话"
+@Composable
+private fun ModelMenuItem(
+    option: ChatModelOption,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val shapes = BreezeTheme.shapes
+    val spacing = BreezeTheme.spacing
+    val typography = BreezeTheme.typography
+    val extra = BreezeTheme.extendedColors
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shapes.medium)
+            .clickable(onClick = onClick),
+        color = if (selected) extra.promptChipBackground else scheme.surface,
+        shape = shapes.medium,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(shapes.pill)
+                    .background(if (selected) scheme.primary else scheme.outlineVariant),
+            )
+            Text(
+                text = option.title,
+                modifier = Modifier.weight(1f),
+                style = typography.labelLarge,
+                color = scheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
-private fun desktopHeaderSubtitle(
-    selectedDesktopRoute: String,
-    previewMode: Boolean,
-): String = when (selectedDesktopRoute) {
-    ApiConfig.routePattern -> if (previewMode) "Preview provider settings" else "在同一工作区中调整 Provider 与鉴权配置"
-    ModelSettings.routePattern -> if (previewMode) "Preview model settings" else "在同一工作区中调整模型参数与输出偏好"
-    else -> if (previewMode) "Preview layout" else "内容由豆包 AI 生成，请仔细甄别"
+private data class ChatModelOption(
+    val id: String,
+    val title: String,
+)
+
+private fun modelOptionsFor(providerId: LlmProviderId): List<ChatModelOption> = when (providerId) {
+    LlmProviderId.Local -> listOf(
+        ChatModelOption("breeze-echo", "Breeze Echo"),
+        ChatModelOption("qwen2.5:7b", "Qwen 2.5 7B"),
+        ChatModelOption("llama3.2:3b", "Llama 3.2 3B"),
+    )
+
+    LlmProviderId.OpenAI -> listOf(
+        ChatModelOption("gpt-4.1-mini", "GPT-4.1 mini"),
+        ChatModelOption("gpt-4.1", "GPT-4.1"),
+        ChatModelOption("o4-mini", "o4-mini"),
+    )
+
+    LlmProviderId.Anthropic -> listOf(
+        ChatModelOption("claude-3-5-haiku-latest", "Claude 3.5 Haiku"),
+        ChatModelOption("claude-3-7-sonnet-latest", "Claude 3.7 Sonnet"),
+        ChatModelOption("claude-opus-4-1", "Claude Opus 4.1"),
+    )
 }
 
 @Composable
 private fun MessageStage(
     state: ChatUiState,
+    onPromptSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
     previewMode: Boolean,
 ) {
@@ -598,6 +876,7 @@ private fun MessageStage(
     if (state.messages.isEmpty()) {
         WelcomePanel(
             modifier = modifier,
+            onPromptSelected = onPromptSelected,
             previewMode = previewMode,
         )
         return
@@ -616,64 +895,73 @@ private fun MessageStage(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun WelcomePanel(
     modifier: Modifier = Modifier,
+    onPromptSelected: (String) -> Unit,
     previewMode: Boolean,
 ) {
     val typography = BreezeTheme.typography
     val spacing = BreezeTheme.spacing
     val extra = BreezeTheme.extendedColors
     val scheme = MaterialTheme.colorScheme
-
-    val prompts = listOf(
-        "资讯：帮我总结今天值得关注的 AI 动态",
-        "深圳中产家庭收入大概是多少？",
-        "为什么很多程序员喜欢 Dvorak 键盘布局？",
-        "给我一些促进静脉健康的生活建议",
-        "天玑和骁龙处理器各自的优缺点是什么",
-    )
+    val maxPromptItemsInRow = if (LocalWindowInfo.current.widthClass == WidthClass.Compact) 1 else 2
+    val prompts = promptSuggestionTexts()
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(0.72f))
         Text(
-            text = if (previewMode) "预览模式下的首页问题引导" else "有什么我能帮你的吗？",
+            text = if (previewMode) stringResource(Res.string.preview_welcome_prompt) else stringResource(Res.string.welcome_prompt),
             style = typography.titleLarge,
             color = scheme.onSurface,
             textAlign = TextAlign.Center,
         )
-        Spacer(modifier = Modifier.height(spacing.xl))
-        prompts.chunked(2).forEach { rowItems ->
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                rowItems.forEach { prompt ->
-                    Surface(
-                        shape = BreezeTheme.shapes.pill,
-                        color = scheme.surfaceVariant.copy(alpha = 0.52f),
-                    ) {
-                        Text(
-                            text = prompt,
-                            modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.sm),
-                            style = typography.bodyMedium,
-                            color = extra.textSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+        Spacer(modifier = Modifier.height(spacing.lg))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            maxItemsInEachRow = maxPromptItemsInRow,
+        ) {
+            prompts.forEach { prompt ->
+                Surface(
+                    modifier = Modifier
+                        .widthIn(max = 420.dp)
+                        .clip(BreezeTheme.shapes.pill)
+                        .clickable { onPromptSelected(prompt) },
+                    shape = BreezeTheme.shapes.pill,
+                    color = extra.promptChipBackground,
+                    border = BorderStroke(spacing.hairline, scheme.outlineVariant.copy(alpha = 0.36f)),
+                ) {
+                    Text(
+                        text = prompt,
+                        modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.sm),
+                        style = typography.bodyMedium,
+                        color = extra.textSecondary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
+        }
+        if (previewMode) {
             Spacer(modifier = Modifier.height(spacing.sm))
+            Text(
+                text = stringResource(Res.string.preview_responsive_hint),
+                style = typography.bodySmall,
+                color = extra.textTertiary,
+            )
         }
         Spacer(modifier = Modifier.weight(1f))
     }
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun ComposerBar(
     state: ChatUiState,
     onDraftChange: (String) -> Unit,
@@ -681,6 +969,7 @@ private fun ComposerBar(
     onNewConversation: () -> Unit,
     onOpenSettings: () -> Unit,
     compactMode: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
     val shapes = BreezeTheme.shapes
@@ -689,15 +978,16 @@ private fun ComposerBar(
     val extra = BreezeTheme.extendedColors
 
     Column(
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        if (state.errorMessage != null) {
+        state.errorMessage?.let { errorMessage ->
             Surface(
                 color = scheme.errorContainer,
                 shape = shapes.medium,
             ) {
                 Text(
-                    text = state.errorMessage,
+                    text = stringResource(errorMessage),
                     modifier = Modifier.padding(spacing.sm),
                     style = typography.bodySmall,
                     color = scheme.onErrorContainer,
@@ -707,26 +997,26 @@ private fun ComposerBar(
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = scheme.surface.copy(alpha = 0.92f),
+            color = extra.composerBackground,
             shape = shapes.input,
-            border = BorderStroke(spacing.hairline, scheme.outlineVariant.copy(alpha = 0.65f)),
+            border = BorderStroke(spacing.hairline, extra.chatInputBorder),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(spacing.sm),
-                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                    .padding(horizontal = spacing.sm, vertical = spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
             ) {
                 OutlinedTextField(
                     value = state.draft,
                     onValueChange = onDraftChange,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !state.isSending,
-                    minLines = 3,
-                    maxLines = 6,
+                    minLines = 2,
+                    maxLines = 4,
                     shape = shapes.input,
                     placeholder = {
-                        Text("发消息或输入 / 选择技能")
+                        Text(stringResource(Res.string.composer_placeholder))
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedContainerColor = scheme.surface.copy(alpha = 0f),
@@ -742,25 +1032,23 @@ private fun ComposerBar(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(
+                    FlowRow(
+                        modifier = Modifier.weight(1f),
                         horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                        maxItemsInEachRow = 4,
                     ) {
-                        if (compactMode) {
-                            TextButton(onClick = onOpenSettings, shape = shapes.pill) {
-                                Text("设置")
-                            }
-                        }
                         TextButton(onClick = onNewConversation, shape = shapes.pill) {
-                            Text("快速")
+                            Text(stringResource(Res.string.quick))
                         }
                         TextButton(onClick = {}, shape = shapes.pill) {
-                            Text("帮我写作")
+                            Text(stringResource(Res.string.writing))
                         }
                         TextButton(onClick = {}, shape = shapes.pill) {
-                            Text("编程")
+                            Text(stringResource(Res.string.code))
                         }
                     }
+                    Spacer(modifier = Modifier.width(spacing.sm))
                     Button(
                         onClick = onSendMessage,
                         enabled = state.draft.isNotBlank() && !state.isSending,
@@ -770,18 +1058,10 @@ private fun ComposerBar(
                             contentColor = scheme.onPrimary,
                         ),
                     ) {
-                        Text(if (state.isSending) "发送中" else "发送")
+                        Text(if (state.isSending) stringResource(Res.string.sending) else stringResource(Res.string.send))
                     }
                 }
             }
-        }
-
-        if (!compactMode) {
-            Text(
-                text = "当前发送链路：${state.settings.currentProviderId.displayName} / ${state.settings.currentModelId}",
-                style = typography.bodySmall,
-                color = extra.textSecondary,
-            )
         }
     }
 }
@@ -808,7 +1088,7 @@ private fun MessageBubble(
             verticalArrangement = Arrangement.spacedBy(spacing.xxs),
         ) {
             Text(
-                text = if (isUser) "You" else "Breeze",
+                text = if (isUser) stringResource(Res.string.you) else "Breeze",
                 style = typography.labelMedium,
                 color = if (isUser) extra.chatUserText else extra.chatAiText,
             )
@@ -826,26 +1106,46 @@ private data class ConversationSection(
     val items: List<Conversation>,
 )
 
-private fun conversationSections(conversations: List<Conversation>): List<ConversationSection> {
+@Composable
+private fun conversationSections(
+    conversations: List<Conversation>,
+): List<ConversationSection> {
     if (conversations.isEmpty()) {
         return emptyList()
     }
 
-    return buildList {
-        add(ConversationSection(title = "Today", items = conversations.take(2)))
-        if (conversations.size > 2) {
-            add(ConversationSection(title = "Yesterday", items = conversations.drop(2).take(2)))
+    val today = stringResource(Res.string.today)
+    val yesterday = stringResource(Res.string.yesterday)
+    val recent7Days = stringResource(Res.string.recent_7_days)
+    val recent30Days = stringResource(Res.string.recent_30_days)
+    val earlier = stringResource(Res.string.earlier)
+    val nowEpochMillis = Clock.System.now().toEpochMilliseconds()
+    val grouped = conversations
+        .sortedByDescending { it.updatedAt }
+        .groupBy { conversation ->
+            val ageDays = ((nowEpochMillis - conversation.updatedAt.toEpochMilliseconds()).coerceAtLeast(0L)) / DAY_MILLIS
+            when {
+                ageDays == 0L -> today
+                ageDays == 1L -> yesterday
+                ageDays < 7L -> recent7Days
+                ageDays < 30L -> recent30Days
+                else -> earlier
+            }
         }
-        if (conversations.size > 4) {
-            add(ConversationSection(title = "Previous 7 Days", items = conversations.drop(4)))
+
+    return listOf(today, yesterday, recent7Days, recent30Days, earlier)
+        .mapNotNull { title ->
+            grouped[title]?.takeIf { it.isNotEmpty() }?.let { items ->
+                ConversationSection(title = title, items = items)
+            }
         }
-    }.filter { it.items.isNotEmpty() }
 }
 
-private fun conversationPreviewLabel(conversation: Conversation): String = "Model · ${conversation.modelId}"
+private const val DAY_MILLIS = 86_400_000L
 
 internal fun previewChatUiState(): ChatUiState {
     val now = Clock.System.now()
+    val nowEpochMillis = now.toEpochMilliseconds()
     val conversationId = "preview-conversation"
     return ChatUiState(
         conversations = listOf(
@@ -859,13 +1159,19 @@ internal fun previewChatUiState(): ChatUiState {
                 id = "preview-conversation-2",
                 title = "Python function help",
                 modelId = "claude-3-5-sonnet",
-                updatedAt = now,
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(nowEpochMillis - DAY_MILLIS),
             ),
             Conversation(
                 id = "preview-conversation-3",
                 title = "Design a REST API",
                 modelId = "claude-3-5-sonnet",
-                updatedAt = now,
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(nowEpochMillis - 4 * DAY_MILLIS),
+            ),
+            Conversation(
+                id = "preview-conversation-4",
+                title = "Plan a product launch",
+                modelId = "gpt-4.1-mini",
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(nowEpochMillis - 12 * DAY_MILLIS),
             ),
         ),
         messages = listOf(
@@ -885,7 +1191,7 @@ internal fun previewChatUiState(): ChatUiState {
             ),
         ),
         activeConversationId = conversationId,
-        draft = "Type your message...",
+        draft = "",
         isSending = false,
         errorMessage = null,
         settings = BreezeSettingsSnapshot(),

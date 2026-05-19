@@ -6,12 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.data.settings.BreezeSettingsSnapshot
 import com.hrm.breeze.domain.model.LlmProviderId
+import com.hrm.breeze.generated.resources.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
 
 @Immutable
 data class ApiConfigUiState(
@@ -21,8 +23,7 @@ data class ApiConfigUiState(
     val apiToken: String = "",
     val isSaving: Boolean = false,
     val hasUnsavedChanges: Boolean = false,
-    val statusMessage: String? = null,
-    val providerNotice: String = "",
+    val statusMessage: StringResource? = null,
 )
 
 class ApiConfigViewModel(
@@ -32,7 +33,7 @@ class ApiConfigViewModel(
     private val draftEndpoint = MutableStateFlow<String?>(null)
     private val draftApiToken = MutableStateFlow<String?>(null)
     private val isSaving = MutableStateFlow(false)
-    private val statusMessage = MutableStateFlow<String?>(null)
+    private val statusMessage = MutableStateFlow<StringResource?>(null)
 
     private val settingsSnapshot =
         settings.snapshot.stateIn(
@@ -63,7 +64,6 @@ class ApiConfigViewModel(
                 apiToken = apiToken,
                 isSaving = isSaving,
                 hasUnsavedChanges = hasUnsavedChanges,
-                providerNotice = providerNoticeFor(selectedProviderId),
             )
         }
 
@@ -81,7 +81,6 @@ class ApiConfigViewModel(
                     selectedProviderId = BreezeSettingsSnapshot().currentProviderId,
                     endpoint = BreezeSettingsSnapshot().echoEndpoint,
                     apiToken = BreezeSettingsSnapshot().apiToken.orEmpty(),
-                    providerNotice = providerNoticeFor(BreezeSettingsSnapshot().currentProviderId),
                 ),
         )
 
@@ -104,7 +103,7 @@ class ApiConfigViewModel(
         draftProviderId.value = null
         draftEndpoint.value = null
         draftApiToken.value = null
-        statusMessage.value = "已恢复为最近一次保存的配置。"
+        statusMessage.value = Res.string.status_api_reset
     }
 
     fun onSave() {
@@ -125,18 +124,12 @@ class ApiConfigViewModel(
                 draftProviderId.value = null
                 draftEndpoint.value = null
                 draftApiToken.value = null
-                statusMessage.value = "API 配置已保存。"
-            }.onFailure { throwable ->
-                statusMessage.value = throwable.message ?: "保存失败，请稍后重试。"
+                statusMessage.value = Res.string.status_api_saved
+            }.onFailure {
+                statusMessage.value = Res.string.status_save_failed
             }
 
             isSaving.value = false
         }
     }
-}
-
-private fun providerNoticeFor(providerId: LlmProviderId): String = when (providerId) {
-    LlmProviderId.Local -> "Local 当前走本地/Mock Echo 兼容链路，适合继续验证共享 UI 和仓库闭环。"
-    LlmProviderId.OpenAI -> "OpenAI 已可在 UI 中选择并持久化，当前阶段先走兼容桥接，真实 OpenAI adapter 在 M5-3 接入。"
-    LlmProviderId.Anthropic -> "Anthropic 已可在 UI 中选择并持久化，当前阶段先走兼容桥接，真实 Anthropic adapter 在 M5-4 接入。"
 }

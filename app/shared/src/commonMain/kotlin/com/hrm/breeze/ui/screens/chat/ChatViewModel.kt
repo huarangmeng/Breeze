@@ -8,6 +8,7 @@ import com.hrm.breeze.data.settings.BreezeSettingsSnapshot
 import com.hrm.breeze.domain.model.Conversation
 import com.hrm.breeze.domain.model.Message
 import com.hrm.breeze.domain.repository.ChatRepository
+import com.hrm.breeze.generated.resources.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
 import kotlin.time.Clock
 
 @Immutable
@@ -23,9 +25,9 @@ data class ChatUiState(
     val conversations: List<Conversation> = emptyList(),
     val messages: List<Message> = emptyList(),
     val activeConversationId: String = createConversationId(),
-    val draft: String = "帮我确认 M3 是否已经接通。",
+    val draft: String = "",
     val isSending: Boolean = false,
-    val errorMessage: String? = null,
+    val errorMessage: StringResource? = null,
     val settings: BreezeSettingsSnapshot = BreezeSettingsSnapshot(),
 )
 
@@ -38,7 +40,7 @@ private data class ChatStateScaffold(
 
 private data class ChatStateDetail(
     val messages: List<Message>,
-    val errorMessage: String?,
+    val errorMessage: StringResource?,
     val settings: BreezeSettingsSnapshot,
 )
 
@@ -46,10 +48,10 @@ class ChatViewModel(
     private val chatRepository: ChatRepository,
     private val settings: BreezeSettings,
 ) : ViewModel() {
-    private val draft = MutableStateFlow("帮我确认 M3 是否已经接通。")
+    private val draft = MutableStateFlow("")
     private val activeConversationId = MutableStateFlow(createConversationId())
     private val isSending = MutableStateFlow(false)
-    private val errorMessage = MutableStateFlow<String?>(null)
+    private val errorMessage = MutableStateFlow<StringResource?>(null)
 
     private val conversations =
         chatRepository.observeConversations().stateIn(
@@ -149,6 +151,16 @@ class ChatViewModel(
         errorMessage.value = null
     }
 
+    fun onModelSelected(modelId: String) {
+        viewModelScope.launch {
+            runCatching {
+                settings.updateCurrentModelId(modelId)
+            }.onFailure {
+                errorMessage.value = Res.string.status_model_switch_failed
+            }
+        }
+    }
+
     fun onSendMessage() {
         val text = draft.value.trim()
         if (text.isBlank() || isSending.value) {
@@ -163,9 +175,9 @@ class ChatViewModel(
         viewModelScope.launch {
             runCatching {
                 chatRepository.sendMessage(conversationId, text).collect {}
-            }.onFailure { throwable ->
+            }.onFailure {
                 draft.value = text
-                errorMessage.value = throwable.message ?: "消息发送失败，请稍后重试。"
+                errorMessage.value = Res.string.status_send_failed
             }
             isSending.value = false
         }

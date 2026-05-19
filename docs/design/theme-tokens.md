@@ -55,5 +55,6 @@
 - 输入框与代码块容器形状
 - `hairline / micro / xxs ~ xxl` 间距阶梯
 - `title / body / label / code` 基础字型
+- App shell、侧栏选中态、Composer、欢迎提示 chip、focus ring 等业务语义色
 
 后续如果引入更多组件，应继续向 `:core-ui/theme` 收敛，避免在 feature 层再次出现第二套视觉体系。

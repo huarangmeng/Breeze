@@ -26,6 +26,7 @@ fun ChatRoute(
         onDraftChange = viewModel::onDraftChange,
         onConversationSelected = viewModel::onConversationSelected,
         onNewConversation = viewModel::onNewConversation,
+        onModelSelected = viewModel::onModelSelected,
         onSendMessage = viewModel::onSendMessage,
         selectedDesktopRoute = selectedDesktopRoute,
         onOpenSettings = onOpenSettings,

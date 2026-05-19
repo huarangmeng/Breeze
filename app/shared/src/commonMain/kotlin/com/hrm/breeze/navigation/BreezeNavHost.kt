@@ -34,6 +34,8 @@ import com.hrm.breeze.ui.theme.BreezeTheme
 fun BreezeNavHost(
     modifier: Modifier = Modifier,
     startDestination: TopLevelDestination = Chat,
+    languagePreference: String = "system",
+    onLanguagePreferenceSelected: (String) -> Unit = {},
     chatContent: @Composable (
         selectedDesktopRoute: String,
         onOpenSettings: () -> Unit,
@@ -96,6 +98,8 @@ fun BreezeNavHost(
             apiConfigContent = apiConfigContent,
             modelSettingsContent = modelSettingsContent,
             desktopLikeLayout = desktopLikeLayout,
+            languagePreference = languagePreference,
+            onLanguagePreferenceSelected = onLanguagePreferenceSelected,
             modifier = Modifier.fillMaxSize(),
         )
     }
@@ -133,6 +137,8 @@ private fun FeatureNavHost(
         embeddedMode: Boolean,
     ) -> Unit,
     desktopLikeLayout: Boolean,
+    languagePreference: String,
+    onLanguagePreferenceSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selectedRoute by rememberSaveable {
@@ -189,6 +195,8 @@ private fun FeatureNavHost(
         composable(SettingsHub.routePattern) {
             SettingsHubScreen(
                 selectedRoute = selectedRoute,
+                languagePreference = languagePreference,
+                onLanguagePreferenceSelected = onLanguagePreferenceSelected,
                 onBackToChat = {
                     selectedRoute = Chat.routePattern
                     navController.navigate(Chat.routePattern)

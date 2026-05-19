@@ -16,22 +16,26 @@ private const val DEFAULT_NAMESPACE = "breeze.preferences"
 private const val DEFAULT_ECHO_ENDPOINT = BREEZE_MOCK_ECHO_ENDPOINT
 private const val DEFAULT_MODEL_ID = "breeze-echo"
 private const val DEFAULT_PROVIDER_ID = "local"
+private const val DEFAULT_APP_LANGUAGE_TAG = "system"
 
 internal const val KEY_ECHO_ENDPOINT = "network.echo_endpoint"
 internal const val KEY_PROVIDER_ID = "network.provider_id"
 internal const val KEY_MODEL_ID = "model.current_id"
 internal const val KEY_API_TOKEN = "network.api_token"
+internal const val KEY_APP_LANGUAGE_TAG = "app.language_tag"
 
 private val echoEndpointKey = stringPreferencesKey(KEY_ECHO_ENDPOINT)
 private val providerIdKey = stringPreferencesKey(KEY_PROVIDER_ID)
 private val modelIdKey = stringPreferencesKey(KEY_MODEL_ID)
 private val apiTokenKey = stringPreferencesKey(KEY_API_TOKEN)
+private val appLanguageTagKey = stringPreferencesKey(KEY_APP_LANGUAGE_TAG)
 
 data class BreezeSettingsSnapshot(
     val echoEndpoint: String = DEFAULT_ECHO_ENDPOINT,
     val currentProviderId: LlmProviderId = LlmProviderId.fromStorageValue(DEFAULT_PROVIDER_ID),
     val currentModelId: String = DEFAULT_MODEL_ID,
     val apiToken: String? = null,
+    val appLanguageTag: String = DEFAULT_APP_LANGUAGE_TAG,
 )
 
 class BreezeSettings(
@@ -75,6 +79,12 @@ class BreezeSettings(
             }
         }
     }
+
+    suspend fun updateAppLanguageTag(value: String) {
+        dataStore.edit { preferences ->
+            preferences[appLanguageTagKey] = value.ifBlank { DEFAULT_APP_LANGUAGE_TAG }
+        }
+    }
 }
 
 fun createBreezeSettings(
@@ -92,6 +102,7 @@ internal fun Preferences.toBreezeSettingsSnapshot(): BreezeSettingsSnapshot =
         currentProviderId = LlmProviderId.fromStorageValue(this[providerIdKey] ?: DEFAULT_PROVIDER_ID),
         currentModelId = this[modelIdKey] ?: DEFAULT_MODEL_ID,
         apiToken = this[apiTokenKey],
+        appLanguageTag = this[appLanguageTagKey] ?: DEFAULT_APP_LANGUAGE_TAG,
     )
 
 expect fun createPlatformSettingsPath(namespace: String): Path

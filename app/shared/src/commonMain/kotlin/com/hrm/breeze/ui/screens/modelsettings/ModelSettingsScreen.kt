@@ -30,8 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import com.hrm.breeze.domain.model.LlmProviderId
+import com.hrm.breeze.generated.resources.*
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.theme.BreezeTheme
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 @Composable
@@ -114,8 +117,8 @@ fun ModelSettingsScreen(
                             onModelSelected = onModelSelected,
                         )
                         ParameterRow(
-                            title = "Temperature",
-                            description = "Controls randomness in output. Higher values produce more creative responses.",
+                            title = stringResource(Res.string.temperature),
+                            description = stringResource(Res.string.temperature_description),
                             valueLabel = formatTwoDecimals(temperature),
                             minLabel = "0",
                             maxLabel = "2",
@@ -123,8 +126,8 @@ fun ModelSettingsScreen(
                             onSliderValueChange = { temperature = it * 2f },
                         )
                         ParameterRow(
-                            title = "Top P",
-                            description = "Nucleus sampling. Limits the model to the most probable tokens.",
+                            title = stringResource(Res.string.top_p),
+                            description = stringResource(Res.string.top_p_description),
                             valueLabel = formatTwoDecimals(topP),
                             minLabel = "0",
                             maxLabel = "1",
@@ -132,8 +135,8 @@ fun ModelSettingsScreen(
                             onSliderValueChange = { topP = it },
                         )
                         ParameterRow(
-                            title = "Max Tokens",
-                            description = "Maximum number of tokens to generate in the response.",
+                            title = stringResource(Res.string.max_tokens),
+                            description = stringResource(Res.string.max_tokens_description),
                             valueLabel = maxTokens.toString(),
                             minLabel = "256",
                             maxLabel = "8192",
@@ -143,8 +146,8 @@ fun ModelSettingsScreen(
                             },
                         )
                         ParameterRow(
-                            title = "Context Window Length",
-                            description = "Maximum number of tokens the model can consider in the input.",
+                            title = stringResource(Res.string.context_window_length),
+                            description = stringResource(Res.string.context_window_length_description),
                             valueLabel = contextLength.toString(),
                             minLabel = "1024",
                             maxLabel = "32768",
@@ -204,17 +207,17 @@ private fun ModelSettingsHeader(
             verticalArrangement = Arrangement.spacedBy(spacing.xxs),
         ) {
             Text(
-                text = "Model Parameters",
+                text = stringResource(Res.string.model_parameters),
                 style = typography.titleLarge,
                 color = scheme.onBackground,
             )
             Text(
-                text = if (previewMode) "Preview parameter layout" else "Adjust the model parameters to control the response behavior.",
+                text = if (previewMode) stringResource(Res.string.preview_parameter_layout) else stringResource(Res.string.adjust_model_parameters),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
             )
             Text(
-                text = "Provider: ${state.providerId.displayName}",
+                text = stringResource(Res.string.provider_label, state.providerId.displayName),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
             )
@@ -237,7 +240,7 @@ private fun ModelSelectionSection(
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Text(
-            text = "Model",
+            text = stringResource(Res.string.model),
             style = typography.labelLarge,
             color = scheme.onSurface,
         )
@@ -270,7 +273,7 @@ private fun ModelSelectionSection(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = model.description,
+                            text = stringResource(model.descriptionRes),
                             style = typography.bodySmall,
                             color = extra.textSecondary,
                             maxLines = 2,
@@ -400,12 +403,12 @@ private fun StreamOutputRow(
                 verticalArrangement = Arrangement.spacedBy(spacing.xxs),
             ) {
                 Text(
-                    text = "Stream Output",
+                    text = stringResource(Res.string.stream_output),
                     style = typography.labelLarge,
                     color = scheme.onSurface,
                 )
                 Text(
-                    text = "Enable to receive partial results as they are generated.",
+                    text = stringResource(Res.string.stream_output_description),
                     style = typography.bodySmall,
                     color = extra.textSecondary,
                 )
@@ -433,9 +436,9 @@ private fun ModelSettingsActions(
     Column(
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        if (state.statusMessage != null) {
+        state.statusMessage?.let { statusMessage ->
             Text(
-                text = state.statusMessage,
+                text = stringResource(statusMessage),
                 style = typography.bodySmall,
                 color = extra.textSecondary,
             )
@@ -454,7 +457,7 @@ private fun ModelSettingsActions(
                     contentColor = scheme.primary,
                 ),
             ) {
-                Text("Reset to Default")
+                Text(stringResource(Res.string.reset_to_default))
             }
             Button(
                 onClick = onSave,
@@ -465,7 +468,7 @@ private fun ModelSettingsActions(
                     contentColor = scheme.onPrimary,
                 ),
             ) {
-                Text(if (state.isSaving) "Saving..." else "Apply Settings")
+                Text(if (state.isSaving) stringResource(Res.string.saving) else stringResource(Res.string.apply_settings))
             }
         }
     }
@@ -474,12 +477,11 @@ private fun ModelSettingsActions(
 internal fun previewModelSettingsUiState(): ModelSettingsUiState =
     ModelSettingsUiState(
         selectedModelId = "gpt-4.1-mini",
-        providerId = com.hrm.breeze.domain.model.LlmProviderId.OpenAI,
+        providerId = LlmProviderId.OpenAI,
         availableModels = listOf(
-            ModelOption("gpt-4.1-mini", "GPT-4.1 mini", "轻量通用模型"),
-            ModelOption("gpt-4.1", "GPT-4.1", "高质量通用模型"),
-            ModelOption("o4-mini", "o4-mini", "推理向模型"),
+            ModelOption("gpt-4.1-mini", "GPT-4.1 mini", Res.string.model_desc_gpt41_mini),
+            ModelOption("gpt-4.1", "GPT-4.1", Res.string.model_desc_gpt41),
+            ModelOption("o4-mini", "o4-mini", Res.string.model_desc_o4_mini),
         ),
         hasUnsavedChanges = true,
-        statusMessage = "切换 Provider 后，这里的模型列表会跟随更新。",
     )
