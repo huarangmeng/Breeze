@@ -1,5 +1,6 @@
 package com.hrm.breeze.runtime.llama
 
+import com.hrm.breeze.runtime.api.InferenceMessage
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -11,7 +12,7 @@ class JvmLlamaRuntimeSmokeTest {
     fun streamsTokensFromConfiguredGguf() =
         runTest {
             val modelPath = System.getProperty("breezeSmokeGgufPath") ?: return@runTest
-            val runtimeManager = OnDeviceRuntimeManager()
+            val runtimeManager = LlamaOnDeviceRuntime()
 
             val chunks =
                 runtimeManager.streamCompletion(
@@ -19,8 +20,8 @@ class JvmLlamaRuntimeSmokeTest {
                     localPath = modelPath,
                     messages =
                         listOf(
-                            LlamaMessage(
-                                role = LlamaMessage.Role.User,
+                            InferenceMessage(
+                                role = InferenceMessage.Role.User,
                                 content = "Say hello in one short sentence.",
                             )
                         ),

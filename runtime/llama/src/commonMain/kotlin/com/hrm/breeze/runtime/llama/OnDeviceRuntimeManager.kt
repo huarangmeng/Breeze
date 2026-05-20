@@ -1,12 +1,14 @@
 package com.hrm.breeze.runtime.llama
 
 import com.hrm.breeze.domain.model.InferenceRuntimeState
+import com.hrm.breeze.runtime.api.InferenceMessage
+import com.hrm.breeze.runtime.api.OnDeviceRuntime
 import kotlinx.coroutines.flow.Flow
 
-class OnDeviceRuntimeManager {
+class LlamaOnDeviceRuntime : OnDeviceRuntime {
     private val bridge = createOnDeviceRuntimeBridge()
 
-    suspend fun ensureModelReady(
+    override suspend fun ensureModelReady(
         modelId: String,
         localPath: String?,
         contextWindow: Int,
@@ -19,10 +21,10 @@ class OnDeviceRuntimeManager {
             )
         )
 
-    fun streamCompletion(
+    override fun streamCompletion(
         modelId: String,
         localPath: String?,
-        messages: List<LlamaMessage>,
+        messages: List<InferenceMessage>,
         temperature: Float,
         topP: Float,
         maxTokens: Int,
@@ -50,19 +52,12 @@ internal data class OnDeviceRuntimeLaunchRequest(
 internal data class OnDeviceRuntimeRequest(
     val modelId: String,
     val localPath: String?,
-    val messages: List<LlamaMessage>,
+    val messages: List<InferenceMessage>,
     val temperature: Float,
     val topP: Float,
     val maxTokens: Int,
     val contextWindow: Int,
 )
-
-data class LlamaMessage(
-    val role: Role,
-    val content: String,
-) {
-    enum class Role { System, User, Assistant }
-}
 
 internal interface OnDeviceRuntimeBridge {
     suspend fun ensureModelReady(request: OnDeviceRuntimeLaunchRequest): InferenceRuntimeState

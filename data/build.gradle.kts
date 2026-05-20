@@ -39,7 +39,7 @@ kotlin {
         commonMain.dependencies {
             api(projects.core)
             api(projects.domain)
-            implementation(projects.runtime.llama)
+            implementation(projects.runtime.api)
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)

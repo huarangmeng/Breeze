@@ -173,7 +173,9 @@ class ChatViewModel(
                 if (items.isNotEmpty()) {
                     sessionStates.value = sessionStates.value.toMutableMap().apply {
                         items.forEach { conversation ->
-                            putIfAbsent(conversation.id, ConversationSessionState())
+                            if (conversation.id !in this) {
+                                this[conversation.id] = ConversationSessionState()
+                            }
                         }
                     }
                 }
@@ -274,7 +276,9 @@ class ChatViewModel(
 
     private fun ensureSession(conversationId: String) {
         sessionStates.value = sessionStates.value.toMutableMap().apply {
-            putIfAbsent(conversationId, ConversationSessionState())
+            if (conversationId !in this) {
+                this[conversationId] = ConversationSessionState()
+            }
         }
     }
 

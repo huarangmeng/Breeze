@@ -36,7 +36,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(projects.domain)
+            api(projects.runtime.api)
             implementation(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies {

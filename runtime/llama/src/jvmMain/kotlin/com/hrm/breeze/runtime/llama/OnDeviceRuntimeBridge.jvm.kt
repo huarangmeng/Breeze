@@ -1,6 +1,7 @@
 package com.hrm.breeze.runtime.llama
 
 import com.hrm.breeze.domain.model.InferenceRuntimeState
+import com.hrm.breeze.runtime.api.InferenceMessage
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -296,9 +297,9 @@ private fun OnDeviceRuntimeRequest.toLaunchRequest(): OnDeviceRuntimeLaunchReque
         contextWindow = contextWindow,
     )
 
-private fun List<LlamaMessage>.toChatMlPrompt(): String =
+private fun List<InferenceMessage>.toChatMlPrompt(): String =
     buildString {
-        val hasSystemMessage = this@toChatMlPrompt.any { message -> message.role == LlamaMessage.Role.System }
+        val hasSystemMessage = this@toChatMlPrompt.any { message -> message.role == InferenceMessage.Role.System }
         if (!hasSystemMessage) {
             append("<|im_start|>system\n")
             append("You are Breeze, a helpful on-device assistant.\n")
@@ -307,9 +308,9 @@ private fun List<LlamaMessage>.toChatMlPrompt(): String =
         for (message in this@toChatMlPrompt) {
             val role =
                 when (message.role) {
-                    LlamaMessage.Role.System -> "system"
-                    LlamaMessage.Role.User -> "user"
-                    LlamaMessage.Role.Assistant -> "assistant"
+                    InferenceMessage.Role.System -> "system"
+                    InferenceMessage.Role.User -> "user"
+                    InferenceMessage.Role.Assistant -> "assistant"
                 }
             append("<|im_start|>")
             append(role)

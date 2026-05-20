@@ -41,6 +41,7 @@ import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.theme.BreezeTheme
 import kotlin.math.ln
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -261,5 +262,11 @@ private fun formatByteCount(bytes: Long): String {
     val digitGroup = (ln(bytes.toDouble()) / ln(1024.0)).toInt().coerceIn(1, units.size)
     val scaled = bytes / 1024.0.pow(digitGroup.toDouble())
     val decimals = if (scaled >= 100) 0 else 1
-    return "%.${decimals}f %s".format(scaled, units[digitGroup - 1])
+    val rounded =
+        if (decimals == 0) {
+            scaled.toInt().toString()
+        } else {
+            ((scaled * 10.0).roundToInt() / 10.0).toString()
+        }
+    return "$rounded ${units[digitGroup - 1]}"
 }

@@ -18,7 +18,8 @@ import com.hrm.breeze.data.storage.BreezeDatabase
 import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.domain.repository.ChatRepository
 import com.hrm.breeze.domain.repository.ModelConfigRepository
-import com.hrm.breeze.runtime.llama.OnDeviceRuntimeManager
+import com.hrm.breeze.runtime.api.OnDeviceRuntime
+import com.hrm.breeze.runtime.llama.LlamaOnDeviceRuntime
 import com.hrm.breeze.ui.screens.apiconfig.ApiConfigViewModel
 import com.hrm.breeze.ui.screens.chat.ChatViewModel
 import com.hrm.breeze.ui.screens.history.HistoryViewModel
@@ -38,7 +39,7 @@ private val infrastructureModule =
         }
         single { get<BreezeDatabase>().onDeviceModelAssetDao() }
         single<OpenAiCompatibleChatApi> { KtorOpenAiCompatibleChatApi(get()) }
-        single { OnDeviceRuntimeManager() }
+        single<OnDeviceRuntime> { LlamaOnDeviceRuntime() }
         single {
             OnDeviceModelRepository(
                 assetDao = get(),
