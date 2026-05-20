@@ -162,13 +162,22 @@ void run_generation(
         std::lock_guard<std::mutex> lock(model_handle->mutex);
         const llama_vocab * vocab = llama_model_get_vocab(model_handle->model);
         std::vector<llama_token> prompt_tokens = tokenize_prompt(vocab, prompt);
-        if (static_cast<int>(prompt_tokens.size()) >= context_window) {
+        const uint32_t model_context_window = static_cast<uint32_t>(std::max(1, llama_model_n_ctx_train(model_handle->model)));
+        const uint32_t requested_context_window = std::min(
+            static_cast<uint32_t>(std::max(1, context_window)),
+            model_context_window
+        );
+        if (static_cast<uint32_t>(prompt_tokens.size()) >= requested_context_window) {
             throw std::runtime_error("Prompt is longer than the configured context window");
         }
 
         llama_context_params ctx_params = llama_context_default_params();
-        ctx_params.n_ctx = static_cast<uint32_t>(context_window);
-        ctx_params.n_batch = static_cast<uint32_t>(std::min<int>(context_window, 512));
+        ctx_params.n_ctx = requested_context_window;
+        ctx_params.n_batch = std::min<uint32_t>(
+            requested_context_window,
+            static_cast<uint32_t>(std::max<size_t>(1, prompt_tokens.size()))
+        );
+        ctx_params.n_ubatch = ctx_params.n_batch;
         ctx_params.n_threads = std::max<int>(1, static_cast<int>(std::thread::hardware_concurrency()));
         ctx_params.n_threads_batch = ctx_params.n_threads;
         ctx_params.no_perf = true;
@@ -179,9 +188,25 @@ void run_generation(
         }
         sampler.reset(create_sampler(temperature, top_p));
 
-        llama_batch batch = llama_batch_get_one(prompt_tokens.data(), static_cast<int32_t>(prompt_tokens.size()));
-        if (llama_decode(ctx.get(), batch) != 0) {
-            throw std::runtime_error("Failed to decode prompt");
+        const uint32_t actual_context_window = llama_n_ctx(ctx.get());
+        const uint32_t actual_batch = llama_n_batch(ctx.get());
+        const uint32_t actual_ubatch = llama_n_ubatch(ctx.get());
+        if (static_cast<uint32_t>(prompt_tokens.size()) >= actual_context_window) {
+            throw std::runtime_error("Prompt is longer than the actual llama context window");
+        }
+        const uint32_t decode_chunk_size = std::max<uint32_t>(1, std::min(actual_batch, actual_ubatch));
+        if (decode_chunk_size == 0) {
+            throw std::runtime_error("llama.cpp reported an invalid batch size");
+        }
+
+        for (size_t offset = 0; offset < prompt_tokens.size(); offset += decode_chunk_size) {
+            const int32_t chunk_size = static_cast<int32_t>(
+                std::min<size_t>(decode_chunk_size, prompt_tokens.size() - offset)
+            );
+            llama_batch batch = llama_batch_get_one(prompt_tokens.data() + offset, chunk_size);
+            if (llama_decode(ctx.get(), batch) != 0) {
+                throw std::runtime_error("Failed to decode prompt");
+            }
         }
 
         int generated = 0;
@@ -199,7 +224,7 @@ void run_generation(
                 break;
             }
 
-            batch = llama_batch_get_one(&token, 1);
+            llama_batch batch = llama_batch_get_one(&token, 1);
             if (llama_decode(ctx.get(), batch) != 0) {
                 throw std::runtime_error("Failed to decode generated token");
             }
