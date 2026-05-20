@@ -38,7 +38,7 @@ private val infrastructureModule =
         }
         single { get<BreezeDatabase>().onDeviceModelAssetDao() }
         single<OpenAiCompatibleChatApi> { KtorOpenAiCompatibleChatApi(get()) }
-        single { OnDeviceRuntimeManager(get()) }
+        single { OnDeviceRuntimeManager() }
         single {
             OnDeviceModelRepository(
                 assetDao = get(),
@@ -47,7 +47,7 @@ private val infrastructureModule =
                 runtimeManager = get(),
             )
         }
-        single { LocalProvider(get(), get(), get()) }
+        single { LocalProvider(get(), get()) }
         single<ModelConfigRepository> { ModelConfigRepositoryImpl(get(), get()) }
         single {
             LlmProviderRegistry(

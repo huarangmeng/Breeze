@@ -65,15 +65,32 @@ class OnDeviceModelRepository(
         contextWindow: Int? = null,
     ): OnDeviceModelState {
         val current = observeCurrentModel().first() ?: error("No on-device model selected")
+        return ensureModelReady(current, contextWindow)
+    }
+
+    private suspend fun ensureModelReady(
+        current: OnDeviceModelState,
+        contextWindow: Int?,
+    ): OnDeviceModelState {
         if (!current.isReadyForChat) {
             error("Selected on-device model is not ready")
         }
         val runtimeState =
-            runtimeManager.ensureModelReady(
-                modelId = current.preset.id,
-                localPath = current.localPath,
-                contextWindow = contextWindow ?: current.preset.recommendedContextWindow,
-            )
+            runCatching {
+                runtimeManager.ensureModelReady(
+                    modelId = current.preset.id,
+                    localPath = current.localPath,
+                    contextWindow = contextWindow ?: current.preset.recommendedContextWindow,
+                )
+            }.getOrElse { throwable ->
+                assetDao.upsertAsset(
+                    current.toEntity(
+                        runtimeState = InferenceRuntimeState.Failed,
+                        lastError = throwable.message ?: "Runtime is not ready",
+                    )
+                )
+                throw throwable
+            }
         if (runtimeState != InferenceRuntimeState.Ready) {
             assetDao.upsertAsset(
                 current.toEntity(
@@ -83,8 +100,13 @@ class OnDeviceModelRepository(
             )
             error("On-device runtime is not ready")
         }
-        assetDao.upsertAsset(current.toEntity(runtimeState = runtimeState))
-        return current.copy(runtimeState = runtimeState)
+        assetDao.upsertAsset(
+            current.toEntity(
+                runtimeState = runtimeState,
+                lastError = null,
+            )
+        )
+        return current.copy(runtimeState = runtimeState, lastError = null)
     }
 
     suspend fun downloadModel(presetId: String) {

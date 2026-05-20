@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
-
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
@@ -105,4 +104,89 @@ dependencies {
     add("kspJvm", libs.room.compiler)
     add("kspJs", libs.room.compiler)
     add("kspWasmJs", libs.room.compiler)
+}
+
+val desktopLlamaPlatform: String =
+    run {
+        val os = System.getProperty("os.name").lowercase()
+        val arch = System.getProperty("os.arch").lowercase()
+        val osSegment =
+            when {
+                os.contains("mac") -> "macos"
+                os.contains("win") -> "windows"
+                os.contains("linux") -> "linux"
+                else -> os.replace(Regex("[^a-z0-9]+"), "-")
+            }
+        val archSegment =
+            when {
+                arch == "aarch64" || arch == "arm64" -> "arm64"
+                arch == "x86_64" || arch == "amd64" -> "x64"
+                else -> arch.replace(Regex("[^a-z0-9]+"), "-")
+            }
+        "$osSegment-$archSegment"
+    }
+
+val desktopLlamaBuildDir = layout.buildDirectory.dir("native/llama/$desktopLlamaPlatform")
+val desktopLlamaOutputDir = layout.buildDirectory.dir("native/llama/$desktopLlamaPlatform/out")
+val desktopLlamaResourceDir =
+    layout.buildDirectory.dir("generated/llamaRuntime/resources/breeze-runtime/$desktopLlamaPlatform")
+val desktopLlamaLibraryName = System.mapLibraryName("breeze_llama_jni")
+val cmakeExecutable = providers.environmentVariable("BREEZE_CMAKE").orElse("cmake")
+val llamaCppSourceDir = rootProject.layout.projectDirectory.dir("third_party/llama.cpp")
+val shouldBundleDesktopLlamaRuntime =
+    providers.gradleProperty("breezeBuildDesktopLlamaRuntime").map(String::toBoolean).orElse(false)
+
+val configureDesktopLlamaRuntime by tasks.registering(Exec::class) {
+    group = "breeze"
+    description = "Configure the in-app Desktop llama.cpp JNI runtime."
+    val buildDir = desktopLlamaBuildDir.get().asFile
+    inputs.files(fileTree("src/jvmMain/cpp"))
+    inputs.dir(llamaCppSourceDir)
+    outputs.dir(desktopLlamaBuildDir)
+    commandLine(
+        cmakeExecutable.get(),
+        "-S",
+        "$projectDir/src/jvmMain/cpp",
+        "-B",
+        buildDir.absolutePath,
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${desktopLlamaOutputDir.get().asFile.absolutePath}",
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${desktopLlamaOutputDir.get().asFile.absolutePath}",
+        "-DBREEZE_LLAMA_CPP_SOURCE_DIR=${llamaCppSourceDir.asFile.absolutePath}",
+    )
+}
+
+val buildDesktopLlamaRuntime by tasks.registering(Exec::class) {
+    group = "breeze"
+    description = "Build the in-app Desktop llama.cpp JNI runtime."
+    dependsOn(configureDesktopLlamaRuntime)
+    inputs.dir(desktopLlamaBuildDir)
+    outputs.file(desktopLlamaOutputDir.map { it.file(desktopLlamaLibraryName) })
+    commandLine(
+        cmakeExecutable.get(),
+        "--build",
+        desktopLlamaBuildDir.get().asFile.absolutePath,
+        "--config",
+        "Release",
+        "--target",
+        "breeze_llama_jni",
+        "--parallel",
+    )
+}
+
+val copyDesktopLlamaRuntime by tasks.registering(Copy::class) {
+    group = "breeze"
+    description = "Copy the Desktop llama.cpp JNI runtime into JVM resources."
+    dependsOn(buildDesktopLlamaRuntime)
+    from(desktopLlamaOutputDir)
+    include(desktopLlamaLibraryName)
+    into(desktopLlamaResourceDir)
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+tasks.named<Copy>("jvmProcessResources") {
+    from(layout.buildDirectory.dir("generated/llamaRuntime/resources"))
+    if (shouldBundleDesktopLlamaRuntime.get()) {
+        dependsOn(copyDesktopLlamaRuntime)
+    }
 }

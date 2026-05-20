@@ -40,6 +40,7 @@
 - [design/navigation.md](design/navigation.md)：导航结构、根布局、返回栈策略与深链边界
 - [design/i18n.md](design/i18n.md)：i18n 语言范围、系统语言回退策略与 UI 接入方式
 - [platform/persistence-paths.md](platform/persistence-paths.md)：跨平台持久化路径策略（Room3 / DataStore 的目录约束与平台映射）
+- [platform/desktop-llama-runtime.md](platform/desktop-llama-runtime.md)：Desktop llama.cpp JNI runtime 的 vendored source、构建与加载策略
 
 ## 根目录保留项
 

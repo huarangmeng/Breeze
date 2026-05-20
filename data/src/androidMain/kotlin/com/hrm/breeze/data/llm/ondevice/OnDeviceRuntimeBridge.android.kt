@@ -2,16 +2,17 @@ package com.hrm.breeze.data.llm.ondevice
 
 import com.hrm.breeze.data.platform.BreezeModelPaths
 import com.hrm.breeze.domain.model.InferenceRuntimeState
-import io.ktor.client.HttpClient
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 internal actual fun createOnDeviceRuntimeBridge(
-    httpClient: HttpClient,
     modelPaths: BreezeModelPaths,
 ): OnDeviceRuntimeBridge =
     object : OnDeviceRuntimeBridge {
         override suspend fun ensureModelReady(request: OnDeviceRuntimeLaunchRequest): InferenceRuntimeState =
             InferenceRuntimeState.Failed
 
-        override suspend fun requireEndpoint(request: OnDeviceRuntimeLaunchRequest): String =
+        override fun streamCompletion(request: OnDeviceRuntimeRequest): Flow<String> = flow {
             error("llama.cpp runtime is not implemented on Android yet")
+        }
     }

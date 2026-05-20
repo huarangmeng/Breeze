@@ -28,3 +28,13 @@ compose.desktop {
         }
     }
 }
+
+tasks.matching {
+    it.name == "run" ||
+        it.name.startsWith("package") ||
+        it.name.startsWith("createDistributable")
+}.configureEach {
+    if (providers.gradleProperty("breezeBuildDesktopLlamaRuntime").map(String::toBoolean).orElse(false).get()) {
+        dependsOn(":data:copyDesktopLlamaRuntime")
+    }
+}

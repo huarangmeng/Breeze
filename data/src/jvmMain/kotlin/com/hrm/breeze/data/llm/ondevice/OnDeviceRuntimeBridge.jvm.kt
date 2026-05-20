@@ -1,250 +1,208 @@
 package com.hrm.breeze.data.llm.ondevice
 
+import com.hrm.breeze.data.llm.LlmMessage
 import com.hrm.breeze.data.platform.BreezeModelPaths
-import com.hrm.breeze.data.platform.resolveBreezeJvmAppSupportFile
 import com.hrm.breeze.domain.model.InferenceRuntimeState
-import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
-import java.net.ServerSocket
-import java.util.concurrent.TimeUnit
 
 internal actual fun createOnDeviceRuntimeBridge(
-    httpClient: HttpClient,
     modelPaths: BreezeModelPaths,
-): OnDeviceRuntimeBridge = JvmLlamaCppRuntimeBridge(httpClient, modelPaths)
+): OnDeviceRuntimeBridge = JvmInProcessLlamaRuntimeBridge(modelPaths)
 
-private class JvmLlamaCppRuntimeBridge(
-    private val httpClient: HttpClient,
+private class JvmInProcessLlamaRuntimeBridge(
     private val modelPaths: BreezeModelPaths,
 ) : OnDeviceRuntimeBridge {
-    private val sessionMutex = Mutex()
-    private var activeSession: LlamaCppServerSession? = null
+    private val runtimeInstaller = JvmLlamaRuntimeInstaller(modelPaths)
+    private val nativeBridge = BreezeLlamaNativeBridge(runtimeInstaller)
+    private val modelMutex = Mutex()
+    private var loadedModel: LoadedModel? = null
 
     override suspend fun ensureModelReady(request: OnDeviceRuntimeLaunchRequest): InferenceRuntimeState =
-        runCatching {
-            ensureSession(request)
+        if (runCatching { loadModel(request) }.isSuccess) {
             InferenceRuntimeState.Ready
-        }.getOrElse {
+        } else {
             InferenceRuntimeState.Failed
         }
 
-    override suspend fun requireEndpoint(request: OnDeviceRuntimeLaunchRequest): String = ensureSession(request).endpoint
-
-    private suspend fun ensureSession(request: OnDeviceRuntimeLaunchRequest): LlamaCppServerSession =
-        sessionMutex.withLock {
-            val normalizedRequest = request.normalized()
-            val reusableSession = activeSession
-            if (reusableSession != null &&
-                reusableSession.matches(normalizedRequest) &&
-                reusableSession.process.isAlive &&
-                reusableSession.isHealthy(httpClient)
-            ) {
-                return@withLock reusableSession
-            }
-
-            reusableSession?.stop()
-            val binary = discoverLlamaServerBinary()
-            val port = findAvailablePort()
-            val logFile = prepareLogFile(normalizedRequest.modelId)
-            val process =
-                ProcessBuilder(buildCommand(binary, normalizedRequest, port))
-                    .redirectErrorStream(true)
-                    .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
-                    .start()
-            val session =
-                LlamaCppServerSession(
-                    modelId = normalizedRequest.modelId,
-                    modelPath = normalizedRequest.requireLocalPath(),
-                    contextWindow = normalizedRequest.contextWindow,
-                    endpoint = "http://127.0.0.1:$port/v1",
-                    process = process,
-                    logFile = logFile,
-                )
-            activeSession = session
-
-            try {
-                waitUntilReady(session)
-                session
-            } catch (throwable: Throwable) {
-                session.stop()
-                if (activeSession === session) {
-                    activeSession = null
-                }
-                throw throwable
-            }
-        }
-
-    private suspend fun waitUntilReady(session: LlamaCppServerSession) {
-        val deadline = System.currentTimeMillis() + STARTUP_TIMEOUT_MILLIS
-        while (System.currentTimeMillis() < deadline) {
-            if (!session.process.isAlive) {
-                val exitCode = runCatching { session.process.exitValue() }.getOrNull()
-                error(
-                    buildString {
-                        append("llama-server exited before becoming ready")
-                        exitCode?.let {
-                            append(" (exitCode=")
-                            append(it)
-                            append(')')
+    override fun streamCompletion(request: OnDeviceRuntimeRequest): Flow<String> = callbackFlow {
+        val normalized = request.normalized()
+        val loadedModel = loadModel(normalized.toLaunchRequest())
+        val generationHandle =
+            nativeBridge.generate(
+                modelHandle = loadedModel.handle,
+                prompt = normalized.messages.toChatMlPrompt(),
+                temperature = normalized.temperature,
+                topP = normalized.topP,
+                maxTokens = normalized.maxTokens,
+                contextWindow = normalized.contextWindow,
+                callback =
+                    object : BreezeLlamaTokenCallback {
+                        override fun onToken(token: String) {
+                            trySend(token)
                         }
-                        append(". Log: ")
-                        append(session.logFile.absolutePath)
-                    }
-                )
-            }
 
-            when (val health = queryHealth(session.endpoint)) {
-                ServerHealth.Ready -> return
-                is ServerHealth.Failed -> {
-                    error(
-                        buildString {
-                            append("llama-server failed to load model")
-                            if (!health.details.isNullOrBlank()) {
-                                append(": ")
-                                append(health.details)
-                            }
-                            append(". Log: ")
-                            append(session.logFile.absolutePath)
+                        override fun onComplete() {
+                            close()
                         }
-                    )
-                }
 
-                ServerHealth.Loading,
-                ServerHealth.Unreachable,
-                -> delay(HEALTH_POLL_INTERVAL_MILLIS)
-            }
-        }
-
-        error("Timed out waiting for llama-server to become ready. Log: ${session.logFile.absolutePath}")
-    }
-
-    private suspend fun LlamaCppServerSession.isHealthy(httpClient: HttpClient): Boolean =
-        when (queryHealth(endpoint)) {
-            ServerHealth.Ready -> true
-            ServerHealth.Loading,
-            ServerHealth.Unreachable,
-            is ServerHealth.Failed,
-            -> false
-        }
-
-    private suspend fun queryHealth(endpoint: String): ServerHealth {
-        val baseEndpoint = endpoint.removeSuffix("/v1")
-        val candidates = listOf("$baseEndpoint/health", "$baseEndpoint/v1/health")
-        var sawLoading = false
-        for (url in candidates) {
-            val response = runCatching { httpClient.get(url) }.getOrNull() ?: continue
-            when (response.status) {
-                HttpStatusCode.OK -> return ServerHealth.Ready
-                HttpStatusCode.ServiceUnavailable -> sawLoading = true
-                HttpStatusCode.InternalServerError -> return ServerHealth.Failed(response.bodyAsText())
-            }
-        }
-        return if (sawLoading) ServerHealth.Loading else ServerHealth.Unreachable
-    }
-
-    private fun buildCommand(
-        binary: File,
-        request: OnDeviceRuntimeLaunchRequest,
-        port: Int,
-    ): List<String> =
-        buildList {
-            add(binary.absolutePath)
-            add("--host")
-            add(LLAMA_SERVER_HOST)
-            add("--port")
-            add(port.toString())
-            add("--model")
-            add(request.requireLocalPath())
-            add("--alias")
-            add(request.modelId)
-            add("--ctx-size")
-            add(request.contextWindow.toString())
-            add("--parallel")
-            add("1")
-        }
-
-    private fun discoverLlamaServerBinary(): File {
-        val configuredPath = System.getenv(ENV_BREEZE_LLAMA_SERVER_PATH)
-        configuredPath
-            ?.takeIf(String::isNotBlank)
-            ?.let(::File)
-            ?.takeIf(File::isUsableExecutable)
-            ?.let { return it }
-
-        val bundledCandidates =
-            listOf(
-                resolveBreezeJvmAppSupportFile("runtime/llama-server"),
-                resolveBreezeJvmAppSupportFile("runtime/llama-server.exe"),
-                File("/opt/homebrew/bin/llama-server"),
-                File("/usr/local/bin/llama-server"),
+                        override fun onError(message: String) {
+                            close(IllegalStateException(message))
+                        }
+                    },
             )
-        bundledCandidates.firstOrNull(File::isUsableExecutable)?.let { return it }
-
-        findBinaryFromPath("llama-server")?.let { return it }
-        findBinaryFromPath("llama-server.exe")?.let { return it }
-
-        error(
-            "Unable to find llama-server. Set $ENV_BREEZE_LLAMA_SERVER_PATH or install llama.cpp so llama-server is available in PATH."
-        )
+        awaitClose { nativeBridge.cancel(generationHandle) }
     }
 
-    private fun findBinaryFromPath(fileName: String): File? {
-        val pathEntries = System.getenv("PATH").orEmpty().split(File.pathSeparatorChar)
-        return pathEntries
-            .asSequence()
-            .filter(String::isNotBlank)
-            .map(::File)
-            .map { dir -> File(dir, fileName) }
-            .firstOrNull(File::isUsableExecutable)
-    }
-
-    private fun prepareLogFile(modelId: String): File {
-        val logsDir = File(modelPaths.logs.toString()).apply { mkdirs() }
-        return File(logsDir, "llama-server-${modelId.toSafeFileSegment()}.log")
-    }
+    private suspend fun loadModel(request: OnDeviceRuntimeLaunchRequest): LoadedModel =
+        modelMutex.withLock {
+            val normalized = request.normalized()
+            val existing = loadedModel
+            if (existing != null && existing.matches(normalized)) {
+                return@withLock existing
+            }
+            existing?.let { nativeBridge.unload(it.handle) }
+            val handle =
+                nativeBridge.loadModel(
+                    modelPath = normalized.requireLocalPath(),
+                    contextWindow = normalized.contextWindow,
+                )
+            loadedModel =
+                LoadedModel(
+                    modelPath = normalized.requireLocalPath(),
+                    contextWindow = normalized.contextWindow,
+                    handle = handle,
+                )
+            checkNotNull(loadedModel)
+        }
 }
 
-private data class LlamaCppServerSession(
-    val modelId: String,
+private data class LoadedModel(
     val modelPath: String,
     val contextWindow: Int,
-    val endpoint: String,
-    val process: Process,
-    val logFile: File,
+    val handle: Long,
 ) {
     fun matches(request: OnDeviceRuntimeLaunchRequest): Boolean =
-        modelId == request.modelId &&
-            modelPath == request.requireLocalPath() &&
-            contextWindow == request.contextWindow
+        modelPath == request.requireLocalPath() && contextWindow == request.contextWindow
+}
 
-    fun stop() {
-        if (!process.isAlive) {
-            return
+private class JvmLlamaRuntimeInstaller(
+    private val modelPaths: BreezeModelPaths,
+) {
+    fun installAndLoad() {
+        val libraryFile = configuredLibraryFile() ?: installedLibraryFile()
+        if (!libraryFile.isFile) {
+            extractBundledRuntime(libraryFile)
         }
-        process.destroy()
-        if (!runCatching { process.waitFor(PROCESS_STOP_TIMEOUT_SECONDS, TimeUnit.SECONDS) }.getOrDefault(false)) {
-            process.destroyForcibly()
-            runCatching { process.waitFor(PROCESS_STOP_TIMEOUT_SECONDS, TimeUnit.SECONDS) }
+        if (!libraryFile.isFile) {
+            error(
+                "Breeze llama.cpp runtime is missing: ${libraryFile.absolutePath}. " +
+                    "Build it with ./gradlew :data:copyDesktopLlamaRuntime -PbreezeBuildDesktopLlamaRuntime=true, " +
+                    "or set $ENV_BREEZE_LLAMA_JNI_LIBRARY_PATH to an existing native library."
+            )
+        }
+        System.load(libraryFile.absolutePath)
+    }
+
+    private fun configuredLibraryFile(): File? =
+        System.getenv(ENV_BREEZE_LLAMA_JNI_LIBRARY_PATH)
+            ?.takeIf(String::isNotBlank)
+            ?.let(::File)
+
+    private fun installedLibraryFile(): File {
+        val runtimeDirectory = File(modelPaths.root.toString(), "runtime/native").apply { mkdirs() }
+        return File(runtimeDirectory, System.mapLibraryName(BREEZE_LLAMA_LIBRARY_NAME))
+    }
+
+    private fun extractBundledRuntime(target: File) {
+        val resourcePath = "/breeze-runtime/${runtimePlatformSegment()}/${target.name}"
+        val input = JvmLlamaRuntimeInstaller::class.java.getResourceAsStream(resourcePath) ?: return
+        target.parentFile?.mkdirs()
+        input.use { source ->
+            target.outputStream().use { sink -> source.copyTo(sink) }
         }
     }
 }
 
-private sealed interface ServerHealth {
-    data object Ready : ServerHealth
+private class BreezeLlamaNativeBridge(
+    private val runtimeInstaller: JvmLlamaRuntimeInstaller,
+) {
+    @Volatile
+    private var loaded = false
 
-    data object Loading : ServerHealth
+    fun loadModel(
+        modelPath: String,
+        contextWindow: Int,
+    ): Long {
+        ensureRuntimeLoaded()
+        return nativeLoadModel(modelPath, contextWindow)
+    }
 
-    data object Unreachable : ServerHealth
+    fun unload(handle: Long) {
+        ensureRuntimeLoaded()
+        nativeUnload(handle)
+    }
 
-    data class Failed(
-        val details: String?,
-    ) : ServerHealth
+    fun generate(
+        modelHandle: Long,
+        prompt: String,
+        temperature: Float,
+        topP: Float,
+        maxTokens: Int,
+        contextWindow: Int,
+        callback: BreezeLlamaTokenCallback,
+    ): Long {
+        ensureRuntimeLoaded()
+        return nativeGenerate(modelHandle, prompt, temperature, topP, maxTokens, contextWindow, callback)
+    }
+
+    fun cancel(handle: Long) {
+        ensureRuntimeLoaded()
+        nativeCancel(handle)
+    }
+
+    private fun ensureRuntimeLoaded() {
+        if (loaded) {
+            return
+        }
+        synchronized(this) {
+            if (!loaded) {
+                runtimeInstaller.installAndLoad()
+                loaded = true
+            }
+        }
+    }
+
+    private external fun nativeLoadModel(
+        modelPath: String,
+        contextWindow: Int,
+    ): Long
+
+    private external fun nativeUnload(handle: Long)
+
+    private external fun nativeGenerate(
+        modelHandle: Long,
+        prompt: String,
+        temperature: Float,
+        topP: Float,
+        maxTokens: Int,
+        contextWindow: Int,
+        callback: BreezeLlamaTokenCallback,
+    ): Long
+
+    private external fun nativeCancel(handle: Long)
+}
+
+private interface BreezeLlamaTokenCallback {
+    fun onToken(token: String)
+
+    fun onComplete()
+
+    fun onError(message: String)
 }
 
 private fun OnDeviceRuntimeLaunchRequest.normalized(): OnDeviceRuntimeLaunchRequest {
@@ -254,17 +212,70 @@ private fun OnDeviceRuntimeLaunchRequest.normalized(): OnDeviceRuntimeLaunchRequ
     return copy(localPath = localPath)
 }
 
+private fun OnDeviceRuntimeRequest.normalized(): OnDeviceRuntimeRequest {
+    require(contextWindow > 0) { "Context window must be positive" }
+    require(maxTokens > 0) { "Max tokens must be positive" }
+    val localPath = requireLocalPath()
+    check(File(localPath).isFile) { "Downloaded on-device model file is missing: $localPath" }
+    return copy(localPath = localPath)
+}
+
 private fun OnDeviceRuntimeLaunchRequest.requireLocalPath(): String =
     checkNotNull(localPath?.takeIf(String::isNotBlank)) { "Missing local model file path" }
 
-private fun File.isUsableExecutable(): Boolean = isFile && canExecute()
+private fun OnDeviceRuntimeRequest.requireLocalPath(): String =
+    checkNotNull(localPath?.takeIf(String::isNotBlank)) { "Missing local model file path" }
 
-private fun findAvailablePort(): Int = ServerSocket(0).use { it.localPort }
+private fun OnDeviceRuntimeRequest.toLaunchRequest(): OnDeviceRuntimeLaunchRequest =
+    OnDeviceRuntimeLaunchRequest(
+        modelId = modelId,
+        localPath = requireLocalPath(),
+        contextWindow = contextWindow,
+    )
 
-private fun String.toSafeFileSegment(): String = replace(Regex("[^a-zA-Z0-9._-]"), "_")
+private fun List<LlmMessage>.toChatMlPrompt(): String =
+    buildString {
+        val hasSystemMessage = this@toChatMlPrompt.any { message -> message.role == LlmMessage.Role.System }
+        if (!hasSystemMessage) {
+            append("<|im_start|>system\n")
+            append("You are Breeze, a helpful on-device assistant.\n")
+            append("<|im_end|>\n")
+        }
+        for (message in this@toChatMlPrompt) {
+            val role =
+                when (message.role) {
+                    LlmMessage.Role.System -> "system"
+                    LlmMessage.Role.User -> "user"
+                    LlmMessage.Role.Assistant -> "assistant"
+                }
+            append("<|im_start|>")
+            append(role)
+            append('\n')
+            append(message.content)
+            append('\n')
+            append("<|im_end|>\n")
+        }
+        append("<|im_start|>assistant\n")
+    }
 
-private const val ENV_BREEZE_LLAMA_SERVER_PATH = "BREEZE_LLAMA_SERVER_PATH"
-private const val LLAMA_SERVER_HOST = "127.0.0.1"
-private const val STARTUP_TIMEOUT_MILLIS = 180_000L
-private const val HEALTH_POLL_INTERVAL_MILLIS = 500L
-private const val PROCESS_STOP_TIMEOUT_SECONDS = 5L
+private fun runtimePlatformSegment(): String {
+    val os = System.getProperty("os.name").lowercase()
+    val arch = System.getProperty("os.arch").lowercase()
+    val osSegment =
+        when {
+            os.contains("mac") -> "macos"
+            os.contains("win") -> "windows"
+            os.contains("linux") -> "linux"
+            else -> os.replace(Regex("[^a-z0-9]+"), "-")
+        }
+    val archSegment =
+        when {
+            arch == "aarch64" || arch == "arm64" -> "arm64"
+            arch == "x86_64" || arch == "amd64" -> "x64"
+            else -> arch.replace(Regex("[^a-z0-9]+"), "-")
+        }
+    return "$osSegment-$archSegment"
+}
+
+private const val BREEZE_LLAMA_LIBRARY_NAME = "breeze_llama_jni"
+private const val ENV_BREEZE_LLAMA_JNI_LIBRARY_PATH = "BREEZE_LLAMA_JNI_LIBRARY_PATH"
