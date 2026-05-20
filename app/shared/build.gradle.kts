@@ -52,6 +52,7 @@ kotlin {
             api(projects.coreUi)
             api(projects.domain)
             api(projects.data)
+            api(projects.runtime.llama)
 
             implementation(project.dependencies.platform(libs.koin.bom))
             implementation(libs.koin.core)

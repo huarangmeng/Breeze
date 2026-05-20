@@ -15,8 +15,9 @@ tree so Breeze can build platform GPU backends without repeatedly copying missin
 backend files into the main repository.
 
 The Desktop in-process llama runtime builds only from this pinned submodule. Do not use
-Gradle or CMake network fetches for normal builds. Initialize submodules before building
-the native runtime:
+Gradle or CMake network fetches for normal builds. The root Gradle build will try to
+initialize this submodule automatically during IDE sync, and the `:data` native runtime
+tasks depend on that repository-level initialization. You can also initialize it manually:
 
 ```bash
 git submodule update --init --recursive third_party/llama.cpp
@@ -51,22 +52,21 @@ Use an explicit upstream tag or commit. Do not track `master` in Gradle or CMake
 4. Rebuild and verify:
 
    ```bash
-   ./gradlew :data:jvmProcessResources -PbreezeBuildDesktopLlamaRuntime=true
+   ./gradlew :runtime:llama:jvmProcessResources
    ./gradlew :data:compileKotlinJvm :app:desktop:compileKotlin
    ```
 
    If a local GGUF model is available, also run:
 
    ```bash
-   ./gradlew :data:jvmTest \
-     -PbreezeBuildDesktopLlamaRuntime=true \
+   ./gradlew :runtime:llama:jvmTest \
      -DbreezeSmokeGgufPath="/absolute/path/to/model.gguf"
    ```
 
 5. Check the generated native library dependencies. On macOS:
 
    ```bash
-   otool -L data/build/processedResources/jvm/main/breeze-runtime/macos-arm64/libbreeze_llama_jni.dylib
+   otool -L runtime/llama/build/processedResources/jvm/main/breeze-runtime/macos-arm64/libbreeze_llama_jni.dylib
    ```
 
    The Desktop build should not introduce unexpected runtime dependencies beyond system

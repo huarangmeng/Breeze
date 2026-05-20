@@ -10,3 +10,5 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.kotlinAndroid) apply false
 }
+
+apply(from = rootProject.file("gradle/llama-submodule.gradle.kts"))

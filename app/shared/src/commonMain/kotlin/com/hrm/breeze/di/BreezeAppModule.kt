@@ -8,7 +8,6 @@ import com.hrm.breeze.data.llm.LlmProviderRegistry
 import com.hrm.breeze.data.llm.LocalProvider
 import com.hrm.breeze.data.llm.OpenAiCompatibleProvider
 import com.hrm.breeze.data.llm.ondevice.OnDeviceModelRepository
-import com.hrm.breeze.data.llm.ondevice.OnDeviceRuntimeManager
 import com.hrm.breeze.data.network.KtorOpenAiCompatibleChatApi
 import com.hrm.breeze.data.network.OpenAiCompatibleChatApi
 import com.hrm.breeze.data.network.createBreezeHttpClient
@@ -19,6 +18,7 @@ import com.hrm.breeze.data.storage.BreezeDatabase
 import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.domain.repository.ChatRepository
 import com.hrm.breeze.domain.repository.ModelConfigRepository
+import com.hrm.breeze.runtime.llama.OnDeviceRuntimeManager
 import com.hrm.breeze.ui.screens.apiconfig.ApiConfigViewModel
 import com.hrm.breeze.ui.screens.chat.ChatViewModel
 import com.hrm.breeze.ui.screens.history.HistoryViewModel
