@@ -3,8 +3,7 @@ package com.hrm.breeze.data.repository
 import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.core.coroutines.defaultAppDispatchers
 import com.hrm.breeze.core.logging.Log
-import com.hrm.breeze.data.conversation.ConversationContextAssembler
-import com.hrm.breeze.data.conversation.ConversationSummarizer
+import com.hrm.breeze.data.conversation.ConversationContextManager
 import com.hrm.breeze.data.llm.LlmCompletionRequest
 import com.hrm.breeze.data.llm.LlmProviderRegistry
 import com.hrm.breeze.data.settings.BreezeSettings
@@ -17,14 +16,11 @@ import com.hrm.breeze.domain.model.Message
 import com.hrm.breeze.domain.model.ModelProfile
 import com.hrm.breeze.domain.repository.ChatRepository
 import com.hrm.breeze.domain.repository.ModelConfigRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
 private const val CHAT_REPOSITORY_LOG_TAG = "ChatRepository"
@@ -34,11 +30,9 @@ class ChatRepositoryImpl(
     private val llmProviderRegistry: LlmProviderRegistry,
     private val modelConfigRepository: ModelConfigRepository,
     private val settings: BreezeSettings,
-    private val contextAssembler: ConversationContextAssembler = ConversationContextAssembler(),
-    private val conversationSummarizer: ConversationSummarizer = ConversationSummarizer(database.conversationSummaryDao()),
+    private val conversationContextManager: ConversationContextManager,
     private val dispatchers: AppDispatchers = defaultAppDispatchers(),
     private val clock: Clock = Clock.System,
-    private val summaryScope: CoroutineScope = CoroutineScope(SupervisorJob() + dispatchers.io),
 ) : ChatRepository {
     override fun observeConversations(): Flow<List<Conversation>> =
         database.conversationDao()
@@ -61,7 +55,6 @@ class ChatRepositoryImpl(
             ?: error("No active model config selected")
         val messageDao = database.messageDao()
         val conversationDao = database.conversationDao()
-        val summaryDao = database.conversationSummaryDao()
         val settingsSnapshot = settings.snapshot.first()
         val modelProfile =
             ModelProfile(
@@ -90,12 +83,11 @@ class ChatRepositoryImpl(
             createdAtEpochMillis = now.toEpochMilliseconds(),
         )
         val persistedHistoryMessages = messageDao.getMessages(conversationId)
-        val existingSummary = summaryDao.getSummary(conversationId)
-        val contextMessages =
-            contextAssembler.assemble(
+        val conversationContext =
+            conversationContextManager.prepareBeforeSend(
+                conversationId = conversationId,
                 historyMessages = persistedHistoryMessages,
                 currentUserMessage = userMessage,
-                summary = existingSummary,
                 contextWindow = settingsSnapshot.contextWindow,
                 maxTokens = settingsSnapshot.maxTokens,
             )
@@ -106,7 +98,7 @@ class ChatRepositoryImpl(
         val request =
             LlmCompletionRequest(
                 conversationId = conversationId,
-                messages = contextMessages,
+                messages = conversationContext.requestMessages,
                 model = modelProfile,
                 temperature = settingsSnapshot.temperature,
                 topP = settingsSnapshot.topP,
@@ -170,26 +162,17 @@ class ChatRepositoryImpl(
             )
         )
 
-        val summarizableMessages =
-            persistedHistoryMessages + userMessage + listOfNotNull(finalAssistantMessage)
-        summaryScope.launch {
-            runCatching {
-                conversationSummarizer.refreshIfNeeded(
-                    conversationId = conversationId,
-                    messages = summarizableMessages,
-                    existingSummary = existingSummary,
-                    provider = provider,
-                    model = modelProfile,
-                    temperature = settingsSnapshot.temperature,
-                    topP = settingsSnapshot.topP,
-                    maxTokens = settingsSnapshot.maxTokens,
-                    contextWindow = settingsSnapshot.contextWindow,
-                )
-            }.onFailure { throwable ->
-                Log.w(CHAT_REPOSITORY_LOG_TAG, throwable) {
-                    "Failed to refresh conversation summary conversationId=$conversationId"
-                }
-            }
-        }
+        conversationContextManager.refreshAfterAssistantFinished(
+            conversationId = conversationId,
+            context = conversationContext,
+            userMessage = userMessage,
+            assistantMessage = finalAssistantMessage,
+            provider = provider,
+            model = modelProfile,
+            temperature = settingsSnapshot.temperature,
+            topP = settingsSnapshot.topP,
+            maxTokens = settingsSnapshot.maxTokens,
+            contextWindow = settingsSnapshot.contextWindow,
+        )
     }.flowOn(dispatchers.io)
 }

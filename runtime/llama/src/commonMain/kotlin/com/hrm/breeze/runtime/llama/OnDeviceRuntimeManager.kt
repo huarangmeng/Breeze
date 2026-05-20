@@ -1,7 +1,11 @@
 package com.hrm.breeze.runtime.llama
 
 import com.hrm.breeze.domain.model.InferenceRuntimeState
+import com.hrm.breeze.runtime.api.EmbeddingRuntimeLaunchRequest
+import com.hrm.breeze.runtime.api.EmbeddingRuntimeRequest
+import com.hrm.breeze.runtime.api.EmbeddingVector
 import com.hrm.breeze.runtime.api.InferenceMessage
+import com.hrm.breeze.runtime.api.OnDeviceEmbeddingRuntime
 import com.hrm.breeze.runtime.api.OnDeviceRuntimeBackend
 import com.hrm.breeze.runtime.api.OnDeviceRuntimeCapability
 import com.hrm.breeze.runtime.api.OnDeviceRuntimeCompletionRequest
@@ -11,7 +15,7 @@ import com.hrm.breeze.runtime.api.OnDeviceRuntime
 import com.hrm.breeze.runtime.api.OnDeviceRuntimeTargetPlatform
 import kotlinx.coroutines.flow.Flow
 
-class LlamaOnDeviceRuntime : OnDeviceRuntime {
+class LlamaOnDeviceRuntime : OnDeviceRuntime, OnDeviceEmbeddingRuntime {
     private val bridge = createOnDeviceRuntimeBridge()
 
     override val capability: OnDeviceRuntimeCapability
@@ -22,6 +26,12 @@ class LlamaOnDeviceRuntime : OnDeviceRuntime {
 
     override fun streamCompletion(request: OnDeviceRuntimeCompletionRequest): Flow<String> =
         bridge.streamCompletion(request.normalized())
+
+    override suspend fun ensureEmbeddingModelReady(request: EmbeddingRuntimeLaunchRequest): InferenceRuntimeState =
+        InferenceRuntimeState.Failed
+
+    override suspend fun embed(request: EmbeddingRuntimeRequest): List<EmbeddingVector> =
+        error("llama.cpp embedding runtime is not implemented yet")
 }
 
 internal interface OnDeviceRuntimeBridge {
@@ -62,6 +72,31 @@ internal fun OnDeviceRuntimeCompletionRequest.toLaunchRequest(): OnDeviceRuntime
         localPath = requireLocalPath(),
         contextWindow = contextWindow,
     )
+
+internal fun List<InferenceMessage>.toChatMlPrompt(): String =
+    buildString {
+        val hasSystemMessage = this@toChatMlPrompt.any { message -> message.role == InferenceMessage.Role.System }
+        if (!hasSystemMessage) {
+            append("<|im_start|>system\n")
+            append("You are Breeze, a helpful on-device assistant.\n")
+            append("<|im_end|>\n")
+        }
+        for (message in this@toChatMlPrompt) {
+            val role =
+                when (message.role) {
+                    InferenceMessage.Role.System -> "system"
+                    InferenceMessage.Role.User -> "user"
+                    InferenceMessage.Role.Assistant -> "assistant"
+                }
+            append("<|im_start|>")
+            append(role)
+            append('\n')
+            append(message.content)
+            append('\n')
+            append("<|im_end|>\n")
+        }
+        append("<|im_start|>assistant\n")
+    }
 
 internal fun desktopJvmLlamaCapability(
     defaultBackend: OnDeviceRuntimeBackend,

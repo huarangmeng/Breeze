@@ -62,7 +62,11 @@ AttachedEnv attach_env() {
     if (g_vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_OK) {
         return { env, false };
     }
+#if defined(__ANDROID__)
+    if (g_vm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+#else
     if (g_vm->AttachCurrentThread(reinterpret_cast<void **>(&env), nullptr) != JNI_OK) {
+#endif
         return {};
     }
     return { env, true };

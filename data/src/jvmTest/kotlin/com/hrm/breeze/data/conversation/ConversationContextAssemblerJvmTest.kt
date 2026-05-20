@@ -32,7 +32,7 @@ class ConversationContextAssemblerJvmTest {
     }
 
     @Test
-    fun longConversationKeepsCurrentMessageAndTrimsOldestMessages() {
+    fun longConversationKeepsCurrentMessageAndTrimsOldestTurns() {
         val assembler = ConversationContextAssembler()
         val history =
             (1..30).map { index ->
@@ -56,6 +56,10 @@ class ConversationContextAssemblerJvmTest {
 
         assertEquals("final question", result.last().content)
         assertFalse(result.any { it.content.startsWith("message-1 ") })
+        assertEquals(
+            result.any { it.content.startsWith("message-29 ") },
+            result.any { it.content.startsWith("message-30 ") },
+        )
         assertTrue(result.any { it.content.startsWith("message-30 ") })
     }
 

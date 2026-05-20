@@ -5,6 +5,10 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.hrm.breeze.core.coroutines.AppDispatchers
+import com.hrm.breeze.data.conversation.ConversationContextAssembler
+import com.hrm.breeze.data.conversation.ConversationContextManager
+import com.hrm.breeze.data.conversation.ConversationSummarizer
+import com.hrm.breeze.data.embedding.EmbeddingProvider
 import com.hrm.breeze.data.llm.LlmCompletionRequest
 import com.hrm.breeze.data.llm.LlmProvider
 import com.hrm.breeze.data.llm.LlmProviderRegistry
@@ -15,8 +19,13 @@ import com.hrm.breeze.data.storage.entity.ConversationEntity
 import com.hrm.breeze.data.storage.entity.ConversationSummaryEntity
 import com.hrm.breeze.data.storage.entity.MessageEntity
 import com.hrm.breeze.data.storage.createPlatformDatabaseBuilder
+import com.hrm.breeze.data.rag.HybridRagRetriever
+import com.hrm.breeze.data.rag.RagContextProvider
+import com.hrm.breeze.data.rag.RagIndexer
+import com.hrm.breeze.data.rag.RagStore
 import com.hrm.breeze.domain.model.LlmProviderId
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
@@ -58,6 +67,7 @@ class ChatRepositoryImplJvmTest {
                 llmProviderRegistry = providerRegistry,
                 modelConfigRepository = modelConfigRepository,
                 settings = settings,
+                conversationContextManager = createConversationContextManager(database, dispatchers),
                 dispatchers = dispatchers,
                 clock = clock,
             )
@@ -123,6 +133,7 @@ class ChatRepositoryImplJvmTest {
                 llmProviderRegistry = providerRegistry,
                 modelConfigRepository = modelConfigRepository,
                 settings = settings,
+                conversationContextManager = createConversationContextManager(database, dispatchers),
                 dispatchers = dispatchers,
                 clock = clock,
             )
@@ -174,6 +185,7 @@ class ChatRepositoryImplJvmTest {
                 llmProviderRegistry = providerRegistry,
                 modelConfigRepository = modelConfigRepository,
                 settings = settings,
+                conversationContextManager = createConversationContextManager(database, dispatchers),
                 dispatchers = dispatchers,
                 clock = clock,
             )
@@ -221,6 +233,7 @@ class ChatRepositoryImplJvmTest {
                 llmProviderRegistry = providerRegistry,
                 modelConfigRepository = modelConfigRepository,
                 settings = settings,
+                conversationContextManager = createConversationContextManager(database, dispatchers),
                 dispatchers = dispatchers,
                 clock = Clock.System,
             )
@@ -300,6 +313,25 @@ private fun createSettings(
         )
 )
 
+private fun createConversationContextManager(
+    database: BreezeDatabase,
+    dispatchers: AppDispatchers,
+): ConversationContextManager =
+    RagStore(
+        documentDao = database.ragDocumentDao(),
+        chunkDao = database.ragChunkDao(),
+    ).let { ragStore ->
+        val embeddingProvider = TestEmbeddingProvider()
+    ConversationContextManager(
+        summaryDao = database.conversationSummaryDao(),
+        contextAssembler = ConversationContextAssembler(),
+        conversationSummarizer = ConversationSummarizer(database.conversationSummaryDao()),
+            ragContextProvider = RagContextProvider(HybridRagRetriever(embeddingProvider, ragStore)),
+            ragIndexer = RagIndexer(ragStore, embeddingProvider),
+        backgroundScope = CoroutineScope(dispatchers.io),
+    )
+    }
+
 private class ChatRepositoryTestDispatchers(
     dispatcher: CoroutineDispatcher,
 ) : AppDispatchers {
@@ -359,4 +391,13 @@ private class CapturingLocalProvider : LlmProvider {
     ).also {
         requests += request
     }
+}
+
+private class TestEmbeddingProvider : EmbeddingProvider {
+    override val modelId: String = "test-embedding"
+    override val dimension: Int = 0
+
+    override suspend fun isReady(): Boolean = false
+
+    override suspend fun embed(texts: List<String>): List<FloatArray> = emptyList()
 }

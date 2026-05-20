@@ -289,31 +289,6 @@ private interface BreezeLlamaTokenCallback {
     fun onError(message: String)
 }
 
-private fun List<InferenceMessage>.toChatMlPrompt(): String =
-    buildString {
-        val hasSystemMessage = this@toChatMlPrompt.any { message -> message.role == InferenceMessage.Role.System }
-        if (!hasSystemMessage) {
-            append("<|im_start|>system\n")
-            append("You are Breeze, a helpful on-device assistant.\n")
-            append("<|im_end|>\n")
-        }
-        for (message in this@toChatMlPrompt) {
-            val role =
-                when (message.role) {
-                    InferenceMessage.Role.System -> "system"
-                    InferenceMessage.Role.User -> "user"
-                    InferenceMessage.Role.Assistant -> "assistant"
-                }
-            append("<|im_start|>")
-            append(role)
-            append('\n')
-            append(message.content)
-            append('\n')
-            append("<|im_end|>\n")
-        }
-        append("<|im_start|>assistant\n")
-    }
-
 internal fun resolveJvmRuntimeDirectory(
     userHome: String = System.getProperty("user.home"),
     platformKind: PlatformKind = platformInfo.kind,

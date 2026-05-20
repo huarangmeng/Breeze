@@ -11,5 +11,11 @@ data class OnDeviceModelPreset(
     val recommendedTemperature: Float = 0.7f,
     val recommendedTopP: Float = 0.9f,
     val minimumRamGb: Int = 4,
+    val kind: OnDeviceModelKind = OnDeviceModelKind.Chat,
     val description: String = "",
 )
+
+enum class OnDeviceModelKind {
+    Chat,
+    Embedding,
+}

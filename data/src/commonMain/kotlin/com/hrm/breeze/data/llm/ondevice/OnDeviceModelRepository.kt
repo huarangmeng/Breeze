@@ -7,6 +7,7 @@ import com.hrm.breeze.data.storage.entity.OnDeviceModelAssetEntity
 import com.hrm.breeze.domain.model.InferenceRuntimeState
 import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.domain.model.OnDeviceDownloadStatus
+import com.hrm.breeze.domain.model.OnDeviceModelKind
 import com.hrm.breeze.domain.model.OnDeviceModelPreset
 import com.hrm.breeze.domain.model.OnDeviceModelState
 import com.hrm.breeze.domain.repository.ModelConfigRepository
@@ -30,7 +31,7 @@ class OnDeviceModelRepository(
     private val runtimeManager: OnDeviceRuntime,
     private val modelPaths: BreezeModelPaths = createBreezeModelPaths(),
 ) {
-    val presets: List<OnDeviceModelPreset> = OnDeviceModelCatalog.presets
+    val presets: List<OnDeviceModelPreset> = OnDeviceModelCatalog.chatPresets
     val runtimeCapability: OnDeviceRuntimeCapability
         get() = runtimeManager.capability
 
@@ -59,6 +60,7 @@ class OnDeviceModelRepository(
     suspend fun selectModel(presetId: String) {
         requireRuntimeAvailable()
         val preset = OnDeviceModelCatalog.requirePreset(presetId)
+        require(preset.kind == OnDeviceModelKind.Chat) { "Only chat models can be selected for conversation" }
         cleanupMissingAsset(presetId)
         requireModelFileExists(preset)
         modelConfigRepository.createAndActivateConfig(
@@ -75,6 +77,20 @@ class OnDeviceModelRepository(
         val current = observeCurrentModel().first() ?: error("No on-device model selected")
         cleanupMissingAsset(current.preset.id)
         return ensureModelReady(current, contextWindow)
+    }
+
+    suspend fun ensureEmbeddingModelReady(
+        presetId: String = QWEN3_EMBEDDING_PRESET_ID,
+    ): OnDeviceModelState {
+        val preset = OnDeviceModelCatalog.requirePreset(presetId)
+        require(preset.kind == OnDeviceModelKind.Embedding) { "Preset is not an embedding model: $presetId" }
+        cleanupMissingAsset(presetId)
+        val asset = assetDao.getAsset(presetId).toDomain(preset = preset, isCurrent = false)
+        requireModelFileExists(preset)
+        if (!asset.isReadyForChat) {
+            error("Embedding model is not downloaded")
+        }
+        return asset
     }
 
     private suspend fun ensureModelReady(
@@ -246,6 +262,8 @@ private fun child(
 ): Path = "${parent}/${child}".toPath()
 
 private const val LOCAL_RUNTIME_ENDPOINT = "local://runtime"
+
+const val QWEN3_EMBEDDING_PRESET_ID = "qwen3_embedding_0_6b_q8_0"
 
 private fun OnDeviceModelAssetEntity?.toDomain(
     preset: OnDeviceModelPreset,

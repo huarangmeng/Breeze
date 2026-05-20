@@ -1,10 +1,22 @@
 package com.hrm.breeze.data.llm.ondevice
 
 import com.hrm.breeze.domain.model.OnDeviceModelPreset
+import com.hrm.breeze.domain.model.OnDeviceModelKind
 
 object OnDeviceModelCatalog {
     val presets: List<OnDeviceModelPreset> =
         listOf(
+            OnDeviceModelPreset(
+                id = "qwen3_embedding_0_6b_q8_0",
+                displayName = "Qwen3 Embedding 0.6B",
+                downloadUrl = "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf",
+                fileName = "qwen3-embedding-0.6b-q8_0.gguf",
+                fileSizeBytes = 610_000_000L,
+                recommendedContextWindow = 8192,
+                minimumRamGb = 4,
+                kind = OnDeviceModelKind.Embedding,
+                description = "Qwen3 本地向量模型，用于 Breeze RAG 语义检索。未下载或加载失败时会自动退回轻量 lexical 检索。",
+            ),
             OnDeviceModelPreset(
                 id = "qwen3_0_6b_q4_k_m",
                 displayName = "Qwen3 0.6B",
@@ -62,6 +74,9 @@ object OnDeviceModelCatalog {
                 description = "Google Gemma 4 E2B 指令模型，适合英文问答、摘要、改写和轻量推理。文件约 3.11GB，内存占用高，建议仅在高端手机、平板或桌面设备上使用。",
             )
         )
+    val chatPresets: List<OnDeviceModelPreset> = presets.filter { preset -> preset.kind == OnDeviceModelKind.Chat }
+
+    val embeddingPresets: List<OnDeviceModelPreset> = presets.filter { preset -> preset.kind == OnDeviceModelKind.Embedding }
 
     fun requirePreset(presetId: String): OnDeviceModelPreset =
         presets.firstOrNull { it.id == presetId }

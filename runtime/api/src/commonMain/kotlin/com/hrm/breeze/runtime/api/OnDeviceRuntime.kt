@@ -49,6 +49,18 @@ interface OnDeviceRuntime {
         )
 }
 
+interface OnDeviceEmbeddingRuntime {
+    val capability: OnDeviceRuntimeCapability
+        get() =
+            OnDeviceRuntimeCapability.unsupported(
+                reason = "On-device embedding runtime is not available on this platform",
+            )
+
+    suspend fun ensureEmbeddingModelReady(request: EmbeddingRuntimeLaunchRequest): InferenceRuntimeState
+
+    suspend fun embed(request: EmbeddingRuntimeRequest): List<EmbeddingVector>
+}
+
 data class OnDeviceRuntimeLaunchRequest(
     val modelId: String,
     val localPath: String?,
@@ -63,6 +75,25 @@ data class OnDeviceRuntimeCompletionRequest(
     val topP: Float,
     val maxTokens: Int,
     val contextWindow: Int,
+)
+
+data class EmbeddingRuntimeLaunchRequest(
+    val modelId: String,
+    val localPath: String?,
+    val contextWindow: Int,
+)
+
+data class EmbeddingRuntimeRequest(
+    val modelId: String,
+    val localPath: String,
+    val inputs: List<String>,
+    val normalize: Boolean = true,
+    val contextWindow: Int = 8192,
+)
+
+data class EmbeddingVector(
+    val textIndex: Int,
+    val values: FloatArray,
 )
 
 data class OnDeviceRuntimeCapability(

@@ -4,7 +4,10 @@ import coil3.ImageLoader
 import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.core.coroutines.defaultAppDispatchers
 import com.hrm.breeze.data.conversation.ConversationContextAssembler
+import com.hrm.breeze.data.conversation.ConversationContextManager
 import com.hrm.breeze.data.conversation.ConversationSummarizer
+import com.hrm.breeze.data.embedding.EmbeddingProvider
+import com.hrm.breeze.data.embedding.Qwen3EmbeddingProvider
 import com.hrm.breeze.data.image.createBreezeImageLoader
 import com.hrm.breeze.data.llm.LlmProviderRegistry
 import com.hrm.breeze.data.llm.LocalProvider
@@ -13,6 +16,11 @@ import com.hrm.breeze.data.llm.ondevice.OnDeviceModelRepository
 import com.hrm.breeze.data.network.KtorOpenAiCompatibleChatApi
 import com.hrm.breeze.data.network.OpenAiCompatibleChatApi
 import com.hrm.breeze.data.network.createBreezeHttpClient
+import com.hrm.breeze.data.rag.HybridRagRetriever
+import com.hrm.breeze.data.rag.RagContextProvider
+import com.hrm.breeze.data.rag.RagIndexer
+import com.hrm.breeze.data.rag.RagRetriever
+import com.hrm.breeze.data.rag.RagStore
 import com.hrm.breeze.data.repository.ChatRepositoryImpl
 import com.hrm.breeze.data.repository.ModelConfigRepositoryImpl
 import com.hrm.breeze.data.settings.createBreezeSettings
@@ -20,6 +28,7 @@ import com.hrm.breeze.data.storage.BreezeDatabase
 import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.domain.repository.ChatRepository
 import com.hrm.breeze.domain.repository.ModelConfigRepository
+import com.hrm.breeze.runtime.api.OnDeviceEmbeddingRuntime
 import com.hrm.breeze.runtime.api.OnDeviceRuntime
 import com.hrm.breeze.runtime.llama.LlamaOnDeviceRuntime
 import com.hrm.breeze.ui.screens.apiconfig.ApiConfigViewModel
@@ -28,22 +37,47 @@ import com.hrm.breeze.ui.screens.history.HistoryViewModel
 import com.hrm.breeze.ui.screens.modelsettings.ModelSettingsViewModel
 import com.hrm.breeze.ui.screens.ondevicemodels.OnDeviceModelsViewModel
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 private val infrastructureModule =
     module {
         single<AppDispatchers> { defaultAppDispatchers() }
+        single<CoroutineScope> { CoroutineScope(SupervisorJob() + get<AppDispatchers>().io) }
         single { createBreezeSettings() }
         single<HttpClient> { createBreezeHttpClient() }
         single<BreezeDatabase> {
             BreezeDatabase.create(dispatchers = get())
         }
         single { get<BreezeDatabase>().onDeviceModelAssetDao() }
+        single {
+            RagStore(
+                documentDao = get<BreezeDatabase>().ragDocumentDao(),
+                chunkDao = get<BreezeDatabase>().ragChunkDao(),
+            )
+        }
         single { ConversationContextAssembler() }
         single { ConversationSummarizer(summaryDao = get<BreezeDatabase>().conversationSummaryDao()) }
+        single<EmbeddingProvider> { Qwen3EmbeddingProvider(get(), get()) }
+        single<RagRetriever> { HybridRagRetriever(get(), get()) }
+        single { RagContextProvider(get()) }
+        single { RagIndexer(get(), get()) }
+        single {
+            ConversationContextManager(
+                summaryDao = get<BreezeDatabase>().conversationSummaryDao(),
+                contextAssembler = get(),
+                conversationSummarizer = get(),
+                ragContextProvider = get(),
+                ragIndexer = get(),
+                backgroundScope = get(),
+            )
+        }
         single<OpenAiCompatibleChatApi> { KtorOpenAiCompatibleChatApi(get()) }
-        single<OnDeviceRuntime> { LlamaOnDeviceRuntime() }
+        single { LlamaOnDeviceRuntime() }
+        single<OnDeviceRuntime> { get<LlamaOnDeviceRuntime>() }
+        single<OnDeviceEmbeddingRuntime> { get<LlamaOnDeviceRuntime>() }
         single {
             OnDeviceModelRepository(
                 assetDao = get(),
@@ -70,8 +104,7 @@ private val infrastructureModule =
                 llmProviderRegistry = get(),
                 modelConfigRepository = get(),
                 settings = get(),
-                contextAssembler = get(),
-                conversationSummarizer = get(),
+                conversationContextManager = get(),
                 dispatchers = get(),
             )
         }

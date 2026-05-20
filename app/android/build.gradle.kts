@@ -10,6 +10,7 @@ kotlin {
 android {
     namespace = "com.hrm.breeze.demo"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
+    ndkVersion = "30.0.14904198"
 
     defaultConfig {
         applicationId = "com.hrm.breeze.demo"
@@ -17,6 +18,21 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        ndk {
+            //noinspection ChromeOsAbiSupport
+            abiFilters += listOf("arm64-v8a")
+        }
+        externalNativeBuild {
+            cmake {
+                arguments += "-DCMAKE_BUILD_TYPE=Release"
+                arguments += "-DANDROID_STL=c++_shared"
+                arguments +=
+                    "-DBREEZE_LLAMA_CPP_SOURCE_DIR=" +
+                        rootProject.layout.projectDirectory
+                            .dir(rootProject.extra["llamaCppRelativePath"] as String)
+                            .asFile.absolutePath
+            }
+        }
     }
 
     buildTypes {
@@ -41,6 +57,13 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("../../runtime/llama/src/androidMain/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 }
 

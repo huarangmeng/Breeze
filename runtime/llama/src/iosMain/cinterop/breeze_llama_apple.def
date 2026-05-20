@@ -1,0 +1,2 @@
+headers = breeze_llama_apple_bridge.h
+package = com.hrm.breeze.runtime.llama.apple
