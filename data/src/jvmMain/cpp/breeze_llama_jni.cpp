@@ -247,7 +247,6 @@ Java_com_hrm_breeze_data_llm_ondevice_BreezeLlamaNativeBridge_nativeLoadModel(
         ensure_backend();
         const std::string path = to_string(env, model_path);
         llama_model_params model_params = llama_model_default_params();
-        model_params.n_gpu_layers = 0;
         model_params.use_mmap = true;
 
         llama_model * model = llama_model_load_from_file(path.c_str(), model_params);

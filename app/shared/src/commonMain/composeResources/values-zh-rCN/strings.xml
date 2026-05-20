@@ -50,6 +50,7 @@
     <string name="save">保存</string>
     <string name="download">下载</string>
     <string name="delete_model">删除</string>
+    <string name="open_model_folder">打开所在目录</string>
     <string name="set_current_model">设为当前模型</string>
     <string name="model_parameters">模型参数</string>
     <string name="preview_parameter_layout">预览参数布局</string>

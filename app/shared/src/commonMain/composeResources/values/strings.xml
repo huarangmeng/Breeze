@@ -50,6 +50,7 @@
     <string name="save">Save</string>
     <string name="download">Download</string>
     <string name="delete_model">Delete</string>
+    <string name="open_model_folder">Open Folder</string>
     <string name="set_current_model">Set Current</string>
     <string name="model_parameters">Model Parameters</string>
     <string name="preview_parameter_layout">Preview parameter layout</string>

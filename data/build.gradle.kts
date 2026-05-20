@@ -106,30 +106,50 @@ dependencies {
     add("kspWasmJs", libs.room.compiler)
 }
 
-val desktopLlamaPlatform: String =
+val desktopLlamaOsSegment: String =
     run {
         val os = System.getProperty("os.name").lowercase()
-        val arch = System.getProperty("os.arch").lowercase()
-        val osSegment =
-            when {
-                os.contains("mac") -> "macos"
-                os.contains("win") -> "windows"
-                os.contains("linux") -> "linux"
-                else -> os.replace(Regex("[^a-z0-9]+"), "-")
-            }
-        val archSegment =
-            when {
-                arch == "aarch64" || arch == "arm64" -> "arm64"
-                arch == "x86_64" || arch == "amd64" -> "x64"
-                else -> arch.replace(Regex("[^a-z0-9]+"), "-")
-            }
-        "$osSegment-$archSegment"
+        when {
+            os.contains("mac") -> "macos"
+            os.contains("win") -> "windows"
+            os.contains("linux") -> "linux"
+            else -> os.replace(Regex("[^a-z0-9]+"), "-")
+        }
     }
 
-val desktopLlamaBuildDir = layout.buildDirectory.dir("native/llama/$desktopLlamaPlatform")
-val desktopLlamaOutputDir = layout.buildDirectory.dir("native/llama/$desktopLlamaPlatform/out")
-val desktopLlamaResourceDir =
-    layout.buildDirectory.dir("generated/llamaRuntime/resources/breeze-runtime/$desktopLlamaPlatform")
+val desktopLlamaArchSegment: String =
+    run {
+        val arch = System.getProperty("os.arch").lowercase()
+        when {
+            arch == "aarch64" || arch == "arm64" -> "arm64"
+            arch == "x86_64" || arch == "amd64" -> "x64"
+            else -> arch.replace(Regex("[^a-z0-9]+"), "-")
+        }
+    }
+
+val desktopLlamaPlatform = "$desktopLlamaOsSegment-$desktopLlamaArchSegment"
+val desktopLlamaGpuBackend =
+    providers.gradleProperty("breezeDesktopLlamaGpuBackend").orElse("auto").map { requested ->
+        when (val normalized = requested.lowercase()) {
+            "auto" ->
+                when (desktopLlamaOsSegment) {
+                    "macos" -> "metal"
+                    "windows", "linux" -> "vulkan"
+                    else -> "cpu"
+                }
+            "none" -> "cpu"
+            "cpu", "metal", "vulkan", "cuda", "hip", "sycl", "opencl" -> normalized
+            else -> error(
+                "Unsupported breezeDesktopLlamaGpuBackend=$requested. " +
+                    "Use auto, cpu, metal, vulkan, cuda, hip, sycl, or opencl."
+            )
+        }
+    }
+
+val desktopLlamaBuildDir =
+    desktopLlamaGpuBackend.map { backend -> layout.buildDirectory.dir("native/llama/$desktopLlamaPlatform/$backend").get() }
+val desktopLlamaOutputDir = desktopLlamaBuildDir.map { it.dir("out") }
+val desktopLlamaResourcePath = "breeze-runtime/$desktopLlamaPlatform"
 val desktopLlamaLibraryName = System.mapLibraryName("breeze_llama_jni")
 val cmakeExecutable = providers.environmentVariable("BREEZE_CMAKE").orElse("cmake")
 val llamaCppSourceDir = rootProject.layout.projectDirectory.dir("third_party/llama.cpp")
@@ -142,6 +162,7 @@ val configureDesktopLlamaRuntime by tasks.registering(Exec::class) {
     val buildDir = desktopLlamaBuildDir.get().asFile
     inputs.files(fileTree("src/jvmMain/cpp"))
     inputs.dir(llamaCppSourceDir)
+    inputs.property("desktopLlamaGpuBackend", desktopLlamaGpuBackend)
     outputs.dir(desktopLlamaBuildDir)
     commandLine(
         cmakeExecutable.get(),
@@ -153,6 +174,7 @@ val configureDesktopLlamaRuntime by tasks.registering(Exec::class) {
         "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${desktopLlamaOutputDir.get().asFile.absolutePath}",
         "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${desktopLlamaOutputDir.get().asFile.absolutePath}",
         "-DBREEZE_LLAMA_CPP_SOURCE_DIR=${llamaCppSourceDir.asFile.absolutePath}",
+        "-DBREEZE_LLAMA_GPU_BACKEND=${desktopLlamaGpuBackend.get()}",
     )
 }
 
@@ -174,19 +196,12 @@ val buildDesktopLlamaRuntime by tasks.registering(Exec::class) {
     )
 }
 
-val copyDesktopLlamaRuntime by tasks.registering(Copy::class) {
-    group = "breeze"
-    description = "Copy the Desktop llama.cpp JNI runtime into JVM resources."
-    dependsOn(buildDesktopLlamaRuntime)
-    from(desktopLlamaOutputDir)
-    include(desktopLlamaLibraryName)
-    into(desktopLlamaResourceDir)
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
-}
-
 tasks.named<Copy>("jvmProcessResources") {
-    from(layout.buildDirectory.dir("generated/llamaRuntime/resources"))
     if (shouldBundleDesktopLlamaRuntime.get()) {
-        dependsOn(copyDesktopLlamaRuntime)
+        dependsOn(buildDesktopLlamaRuntime)
+        from(desktopLlamaOutputDir) {
+            include(desktopLlamaLibraryName)
+            into(desktopLlamaResourcePath)
+        }
     }
 }

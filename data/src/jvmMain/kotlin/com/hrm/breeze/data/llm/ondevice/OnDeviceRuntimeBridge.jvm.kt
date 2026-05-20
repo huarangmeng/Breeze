@@ -101,7 +101,7 @@ private class JvmLlamaRuntimeInstaller(
         if (!libraryFile.isFile) {
             error(
                 "Breeze llama.cpp runtime is missing: ${libraryFile.absolutePath}. " +
-                    "Build it with ./gradlew :data:copyDesktopLlamaRuntime -PbreezeBuildDesktopLlamaRuntime=true, " +
+                    "Bundle it with ./gradlew :data:jvmProcessResources -PbreezeBuildDesktopLlamaRuntime=true, " +
                     "or set $ENV_BREEZE_LLAMA_JNI_LIBRARY_PATH to an existing native library."
             )
         }

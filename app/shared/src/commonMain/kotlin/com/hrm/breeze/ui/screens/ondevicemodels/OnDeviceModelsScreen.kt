@@ -1,5 +1,7 @@
 package com.hrm.breeze.ui.screens.ondevicemodels
 
+import com.hrm.breeze.openDirectoryForPath
+import com.hrm.breeze.platformInfo
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,17 +25,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import com.hrm.breeze.domain.model.OnDeviceDownloadStatus
+import com.hrm.breeze.domain.model.OnDeviceModelState
 import com.hrm.breeze.generated.resources.Res
 import com.hrm.breeze.generated.resources.delete_model
 import com.hrm.breeze.generated.resources.download
 import com.hrm.breeze.generated.resources.on_device_models
 import com.hrm.breeze.generated.resources.on_device_models_description
+import com.hrm.breeze.generated.resources.open_model_folder
+import com.hrm.breeze.generated.resources.current_model
 import com.hrm.breeze.generated.resources.set_current_model
 import com.hrm.breeze.generated.resources.status_downloaded
 import com.hrm.breeze.generated.resources.status_downloading
 import com.hrm.breeze.generated.resources.status_not_downloaded
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.theme.BreezeTheme
+import kotlin.math.ln
+import kotlin.math.pow
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -159,10 +167,25 @@ fun OnDeviceModelsScreen(
                                 style = typography.bodySmall,
                                 color = extra.textSecondary,
                             )
+                            if (model.downloadStatus == OnDeviceDownloadStatus.Downloading) {
+                                val progress = model.downloadProgress
+                                LinearProgressIndicator(
+                                    progress = { progress ?: 0f },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = scheme.primary,
+                                    trackColor = scheme.surfaceVariant,
+                                )
+                                Text(
+                                    text = model.progressLabel(),
+                                    style = typography.bodySmall,
+                                    color = extra.textSecondary,
+                                )
+                            }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                val localPath = model.localPath
                                 Button(
                                     onClick = { onDownload(model.preset.id) },
                                     enabled = state.activePresetId != model.preset.id && model.downloadStatus != OnDeviceDownloadStatus.Downloaded,
@@ -176,10 +199,30 @@ fun OnDeviceModelsScreen(
                                 }
                                 TextButton(
                                     onClick = { onSelect(model.preset.id) },
-                                    enabled = state.activePresetId != model.preset.id && model.downloadStatus == OnDeviceDownloadStatus.Downloaded,
+                                    enabled =
+                                        !model.isCurrent &&
+                                            state.activePresetId != model.preset.id &&
+                                            model.downloadStatus == OnDeviceDownloadStatus.Downloaded,
                                     shape = shapes.medium,
                                 ) {
-                                    Text(stringResource(Res.string.set_current_model))
+                                    Text(
+                                        stringResource(
+                                            if (model.isCurrent) {
+                                                Res.string.current_model
+                                            } else {
+                                                Res.string.set_current_model
+                                            }
+                                        )
+                                    )
+                                }
+                                if (platformInfo.isDesktop && model.downloadStatus == OnDeviceDownloadStatus.Downloaded && localPath != null) {
+                                    TextButton(
+                                        onClick = { openDirectoryForPath(localPath) },
+                                        enabled = state.activePresetId != model.preset.id,
+                                        shape = shapes.medium,
+                                    ) {
+                                        Text(stringResource(Res.string.open_model_folder))
+                                    }
                                 }
                                 TextButton(
                                     onClick = { onDelete(model.preset.id) },
@@ -195,4 +238,28 @@ fun OnDeviceModelsScreen(
             }
         }
     }
+}
+
+private val OnDeviceModelState.downloadProgress: Float?
+    get() {
+        val total = totalBytes?.takeIf { it > 0 } ?: return null
+        return (downloadedBytes.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+    }
+
+private fun OnDeviceModelState.progressLabel(): String {
+    val downloadedText = formatByteCount(downloadedBytes)
+    val totalText = totalBytes?.let(::formatByteCount) ?: "--"
+    val percentText = downloadProgress?.let { " (${(it * 100).toInt()}%)" }.orEmpty()
+    return "$downloadedText / $totalText$percentText"
+}
+
+private fun formatByteCount(bytes: Long): String {
+    if (bytes < 1024) {
+        return "$bytes B"
+    }
+    val units = listOf("KB", "MB", "GB", "TB")
+    val digitGroup = (ln(bytes.toDouble()) / ln(1024.0)).toInt().coerceIn(1, units.size)
+    val scaled = bytes / 1024.0.pow(digitGroup.toDouble())
+    val decimals = if (scaled >= 100) 0 else 1
+    return "%.${decimals}f %s".format(scaled, units[digitGroup - 1])
 }
