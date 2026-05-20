@@ -3,6 +3,7 @@ package com.hrm.breeze.ui.screens.chat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,9 +29,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -44,17 +51,21 @@ import com.hrm.breeze.generated.resources.model_settings
 import com.hrm.breeze.generated.resources.new_chat
 import com.hrm.breeze.generated.resources.preview_responsive_hint
 import com.hrm.breeze.generated.resources.preview_welcome_prompt
+import com.hrm.breeze.generated.resources.hide
 import com.hrm.breeze.generated.resources.quick
+import com.hrm.breeze.generated.resources.reasoning_process
 import com.hrm.breeze.generated.resources.reasoning_mode
 import com.hrm.breeze.generated.resources.send
 import com.hrm.breeze.generated.resources.sending
 import com.hrm.breeze.generated.resources.on_device_models
+import com.hrm.breeze.generated.resources.show
 import com.hrm.breeze.generated.resources.welcome_prompt
 import com.hrm.breeze.generated.resources.writing
 import com.hrm.breeze.generated.resources.you
 import com.hrm.breeze.i18n.promptSuggestionTexts
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.adaptive.WidthClass
+import com.hrm.breeze.ui.components.rememberAutoScrollToBottomState
 import com.hrm.breeze.ui.navigation.ApiConfig
 import com.hrm.breeze.ui.navigation.Chat
 import com.hrm.breeze.ui.navigation.ModelSettings
@@ -62,6 +73,7 @@ import com.hrm.breeze.ui.navigation.OnDeviceModels
 import com.hrm.breeze.ui.theme.BreezeTheme
 import com.hrm.markdown.renderer.Markdown
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.abs
 
 internal data class ChatMainPanelActions(
     val onDraftChange: (String) -> Unit,
@@ -219,6 +231,7 @@ private fun MessageStage(
 ) {
     val spacing = BreezeTheme.spacing
     val scrollState = rememberScrollState()
+    val autoScrollState = rememberAutoScrollToBottomState(scrollState)
 
     if (state.messages.isEmpty()) {
         WelcomePanel(
@@ -229,8 +242,47 @@ private fun MessageStage(
         return
     }
 
-    LaunchedEffect(state.activeConversationId, state.messages.size) {
-        scrollState.scrollTo(scrollState.maxValue)
+    val latestMessage = state.messages.lastOrNull()
+    val latestAssistantStreamSignature =
+        remember(state.messages, state.isSending) {
+            state.messages.lastOrNull { it.role == Message.Role.Assistant }?.let { message ->
+                Triple(
+                    message.id,
+                    message.content.length,
+                    message.reasoningContent?.length ?: 0,
+                )
+            }
+        }
+    var wasSending by remember(state.activeConversationId) { mutableStateOf(state.isSending) }
+
+    LaunchedEffect(state.activeConversationId) {
+        autoScrollState.scrollToBottom(force = true)
+    }
+
+    LaunchedEffect(state.messages.size) {
+        if (latestMessage?.role == Message.Role.User) {
+            autoScrollState.scrollToBottom(force = true)
+        } else {
+            autoScrollState.scrollToBottom()
+        }
+    }
+
+    LaunchedEffect(latestAssistantStreamSignature, state.isSending) {
+        if (state.isSending && latestAssistantStreamSignature != null) {
+            autoScrollState.scrollToBottom()
+        }
+    }
+
+    LaunchedEffect(state.isSending, latestAssistantStreamSignature, state.activeConversationId) {
+        val justFinishedStreaming = wasSending && !state.isSending
+        wasSending = state.isSending
+        if (
+            justFinishedStreaming &&
+            latestAssistantStreamSignature != null &&
+            autoScrollState.shouldAutoScroll
+        ) {
+            autoScrollState.scrollToBottom()
+        }
     }
 
     val latestAssistantMessageId = state.messages.lastOrNull { it.role == Message.Role.Assistant }?.id
@@ -238,6 +290,16 @@ private fun MessageStage(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .pointerInput(state.isSending) {
+                if (!state.isSending) {
+                    return@pointerInput
+                }
+                detectVerticalDragGestures { _, dragAmount ->
+                    if (abs(dragAmount) > 0f) {
+                        autoScrollState.disableAutoScroll()
+                    }
+                }
+            }
             .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
@@ -395,12 +457,12 @@ private fun ComposerBar(
                             Text(stringResource(Res.string.quick))
                         }
                         TextButton(
-                            onClick = { actions.onReasoningEnabledChange(!state.settings.reasoningEnabled) },
+                            onClick = { actions.onReasoningEnabledChange(!state.reasoningEnabled) },
                             enabled = !state.isSending,
                             shape = shapes.pill,
                             colors = ButtonDefaults.textButtonColors(
-                                containerColor = if (state.settings.reasoningEnabled) scheme.primary.copy(alpha = 0.14f) else scheme.surface,
-                                contentColor = if (state.settings.reasoningEnabled) scheme.primary else extra.textSecondary,
+                                containerColor = if (state.reasoningEnabled) scheme.primary.copy(alpha = 0.14f) else scheme.surface,
+                                contentColor = if (state.reasoningEnabled) scheme.primary else extra.textSecondary,
                             ),
                         ) {
                             Text(stringResource(Res.string.reasoning_mode))
@@ -440,6 +502,12 @@ private fun MessageBubble(
     val typography = BreezeTheme.typography
     val extra = BreezeTheme.extendedColors
     val isUser = message.role == Message.Role.User
+    val reasoningContent = message.reasoningContent?.takeIf { it.isNotBlank() }
+    var reasoningExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
+
+    LaunchedEffect(message.id, isStreaming) {
+        reasoningExpanded = isStreaming
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -464,6 +532,56 @@ private fun MessageBubble(
                     color = extra.chatUserText,
                 )
             } else {
+                if (reasoningContent != null) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = extra.promptChipBackground,
+                        shape = shapes.medium,
+                        border = BorderStroke(
+                            spacing.hairline,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.36f),
+                        ),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = spacing.sm, vertical = spacing.xs),
+                            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.reasoning_process),
+                                    style = typography.labelMedium,
+                                    color = extra.textSecondary,
+                                )
+                                TextButton(
+                                    onClick = { reasoningExpanded = !reasoningExpanded },
+                                    shape = shapes.pill,
+                                ) {
+                                    Text(
+                                        text = if (reasoningExpanded) {
+                                            stringResource(Res.string.`hide`)
+                                        } else {
+                                            stringResource(Res.string.`show`)
+                                        },
+                                    )
+                                }
+                            }
+                            if (reasoningExpanded) {
+                                Markdown(
+                                    markdown = reasoningContent,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    isStreaming = isStreaming,
+                                    enableScroll = false,
+                                )
+                            }
+                        }
+                    }
+                }
                 Markdown(
                     markdown = message.content,
                     modifier = Modifier.fillMaxWidth(),

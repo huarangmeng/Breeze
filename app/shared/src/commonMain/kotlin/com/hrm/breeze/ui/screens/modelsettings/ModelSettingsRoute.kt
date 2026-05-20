@@ -29,7 +29,6 @@ fun ModelSettingsRoute(
         onTopPChange = viewModel::onTopPChange,
         onMaxTokensChange = viewModel::onMaxTokensChange,
         onContextWindowChange = viewModel::onContextWindowChange,
-        onStreamOutputChange = viewModel::onStreamOutputChange,
         onReset = viewModel::onReset,
         onSave = viewModel::onSave,
         embeddedMode = embeddedMode,

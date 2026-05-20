@@ -4,12 +4,10 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hrm.breeze.data.llm.ondevice.OnDeviceModelRepository
-import com.hrm.breeze.data.settings.BreezeSettings
-import com.hrm.breeze.data.settings.BreezeSettingsSnapshot
 import com.hrm.breeze.domain.model.Conversation
-import com.hrm.breeze.domain.model.ModelConfig
 import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.domain.model.Message
+import com.hrm.breeze.domain.model.ModelConfig
 import com.hrm.breeze.domain.model.OnDeviceModelState
 import com.hrm.breeze.domain.repository.ChatRepository
 import com.hrm.breeze.domain.repository.ModelConfigRepository
@@ -33,26 +31,30 @@ data class ChatUiState(
     val activeModelConfig: ModelConfig? = null,
     val activeConversationId: String = createConversationId(),
     val draft: String = "",
+    val reasoningEnabled: Boolean = false,
     val isSending: Boolean = false,
     val errorMessage: StringResource? = null,
-    val settings: BreezeSettingsSnapshot = BreezeSettingsSnapshot(),
     val currentOnDeviceModel: OnDeviceModelState? = null,
 )
 
 private data class ChatStateScaffold(
     val conversations: List<Conversation>,
     val activeConversationId: String,
-    val draft: String,
-    val isSending: Boolean,
+    val sessionState: ConversationSessionState,
 )
 
 private data class ChatStateDetail(
     val messages: List<Message>,
-    val errorMessage: StringResource?,
-    val settings: BreezeSettingsSnapshot,
     val currentOnDeviceModel: OnDeviceModelState?,
     val modelConfigs: List<ModelConfig>,
     val activeModelConfig: ModelConfig?,
+)
+
+private data class ConversationSessionState(
+    val draft: String = "",
+    val reasoningEnabled: Boolean = false,
+    val isSending: Boolean = false,
+    val errorMessage: StringResource? = null,
 )
 
 private data class ModelConfigState(
@@ -63,13 +65,10 @@ private data class ModelConfigState(
 class ChatViewModel(
     private val chatRepository: ChatRepository,
     private val modelConfigRepository: ModelConfigRepository,
-    private val settings: BreezeSettings,
     private val onDeviceModelRepository: OnDeviceModelRepository,
 ) : ViewModel() {
-    private val draft = MutableStateFlow("")
     private val activeConversationId = MutableStateFlow(createConversationId())
-    private val isSending = MutableStateFlow(false)
-    private val errorMessage = MutableStateFlow<StringResource?>(null)
+    private val sessionStates = MutableStateFlow<Map<String, ConversationSessionState>>(emptyMap())
 
     private val conversations =
         chatRepository.observeConversations().stateIn(
@@ -84,13 +83,6 @@ class ChatViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
             initialValue = emptyList(),
-        )
-
-    private val settingsSnapshot =
-        settings.snapshot.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
-            initialValue = BreezeSettingsSnapshot(),
         )
 
     private val currentOnDeviceModel =
@@ -118,14 +110,12 @@ class ChatViewModel(
         combine(
             conversations,
             activeConversationId,
-            draft,
-            isSending,
-        ) { conversations, activeConversationId, draft, isSending ->
+            sessionStates,
+        ) { conversations, activeConversationId, sessionStates ->
             ChatStateScaffold(
                 conversations = conversations,
                 activeConversationId = activeConversationId,
-                draft = draft,
-                isSending = isSending,
+                sessionState = sessionStates[activeConversationId] ?: ConversationSessionState(),
             )
         }
 
@@ -143,15 +133,11 @@ class ChatViewModel(
     private val stateDetail =
         combine(
             messages,
-            errorMessage,
-            settingsSnapshot,
             currentOnDeviceModel,
             modelConfigState,
-        ) { messages, errorMessage, settings, currentOnDeviceModel, modelConfigState ->
+        ) { messages, currentOnDeviceModel, modelConfigState ->
             ChatStateDetail(
                 messages = messages,
-                errorMessage = errorMessage,
-                settings = settings,
                 currentOnDeviceModel = currentOnDeviceModel,
                 modelConfigs = modelConfigState.modelConfigs,
                 activeModelConfig = modelConfigState.activeModelConfig,
@@ -169,10 +155,10 @@ class ChatViewModel(
                 modelConfigs = detail.modelConfigs,
                 activeModelConfig = detail.activeModelConfig,
                 activeConversationId = scaffold.activeConversationId,
-                draft = scaffold.draft,
-                isSending = scaffold.isSending,
-                errorMessage = detail.errorMessage,
-                settings = detail.settings,
+                draft = scaffold.sessionState.draft,
+                reasoningEnabled = scaffold.sessionState.reasoningEnabled,
+                isSending = scaffold.sessionState.isSending,
+                errorMessage = scaffold.sessionState.errorMessage,
                 currentOnDeviceModel = detail.currentOnDeviceModel,
             )
         }.stateIn(
@@ -184,6 +170,13 @@ class ChatViewModel(
     init {
         viewModelScope.launch {
             conversations.collect { items ->
+                if (items.isNotEmpty()) {
+                    sessionStates.value = sessionStates.value.toMutableMap().apply {
+                        items.forEach { conversation ->
+                            putIfAbsent(conversation.id, ConversationSessionState())
+                        }
+                    }
+                }
                 if (items.isNotEmpty() && items.none { it.id == activeConversationId.value }) {
                     activeConversationId.value = items.first().id
                 }
@@ -192,21 +185,22 @@ class ChatViewModel(
     }
 
     fun onDraftChange(value: String) {
-        draft.value = value
-        if (errorMessage.value != null) {
-            errorMessage.value = null
+        updateSession(activeConversationId.value) {
+            copy(
+                draft = value,
+                errorMessage = null,
+            )
         }
     }
 
     fun onConversationSelected(conversationId: String) {
         activeConversationId.value = conversationId
-        errorMessage.value = null
     }
 
     fun onNewConversation() {
-        activeConversationId.value = createConversationId()
-        draft.value = ""
-        errorMessage.value = null
+        val conversationId = createConversationId()
+        ensureSession(conversationId)
+        activeConversationId.value = conversationId
     }
 
     fun onModelSelected(modelId: String) {
@@ -214,50 +208,83 @@ class ChatViewModel(
             runCatching {
                 modelConfigRepository.setActiveConfig(modelId)
             }.onFailure {
-                errorMessage.value = Res.string.status_model_switch_failed
+                updateSession(activeConversationId.value) {
+                    copy(errorMessage = Res.string.status_model_switch_failed)
+                }
             }
         }
     }
 
     fun onReasoningEnabledChange(enabled: Boolean) {
-        viewModelScope.launch {
-            runCatching {
-                settings.updateReasoningEnabled(enabled)
-            }.onFailure {
-                errorMessage.value = Res.string.status_save_failed
-            }
+        updateSession(activeConversationId.value) {
+            copy(
+                reasoningEnabled = enabled,
+                errorMessage = null,
+            )
         }
     }
 
     fun onSendMessage() {
-        val text = draft.value.trim()
-        if (text.isBlank() || isSending.value) {
+        val conversationId = activeConversationId.value
+        val sessionState = sessionStates.value[conversationId] ?: ConversationSessionState()
+        val text = sessionState.draft.trim()
+        if (text.isBlank() || sessionState.isSending) {
             return
         }
         val activeModelConfig = state.value.activeModelConfig
         if (activeModelConfig?.modelId.isNullOrBlank()) {
-            errorMessage.value = Res.string.status_model_required_before_send
+            updateSession(conversationId) {
+                copy(errorMessage = Res.string.status_model_required_before_send)
+            }
             return
         }
         val resolvedModelConfig = checkNotNull(activeModelConfig)
         if (resolvedModelConfig.providerId == LlmProviderId.Local && state.value.currentOnDeviceModel?.isReadyForChat != true) {
-            errorMessage.value = Res.string.status_local_model_not_ready
+            updateSession(conversationId) {
+                copy(errorMessage = Res.string.status_local_model_not_ready)
+            }
             return
         }
 
-        val conversationId = activeConversationId.value
-        draft.value = ""
-        errorMessage.value = null
-        isSending.value = true
+        val reasoningEnabled = sessionState.reasoningEnabled
+        updateSession(conversationId) {
+            copy(
+                draft = "",
+                errorMessage = null,
+                isSending = true,
+            )
+        }
 
         viewModelScope.launch {
             runCatching {
-                chatRepository.sendMessage(conversationId, text).collect {}
+                chatRepository.sendMessage(conversationId, text, reasoningEnabled).collect {}
             }.onFailure {
-                draft.value = text
-                errorMessage.value = Res.string.status_send_failed
+                updateSession(conversationId) {
+                    copy(
+                        draft = text,
+                        errorMessage = Res.string.status_send_failed,
+                    )
+                }
             }
-            isSending.value = false
+            updateSession(conversationId) {
+                copy(isSending = false)
+            }
+        }
+    }
+
+    private fun ensureSession(conversationId: String) {
+        sessionStates.value = sessionStates.value.toMutableMap().apply {
+            putIfAbsent(conversationId, ConversationSessionState())
+        }
+    }
+
+    private fun updateSession(
+        conversationId: String,
+        transform: ConversationSessionState.() -> ConversationSessionState,
+    ) {
+        sessionStates.value = sessionStates.value.toMutableMap().apply {
+            val current = this[conversationId] ?: ConversationSessionState()
+            this[conversationId] = current.transform()
         }
     }
 }

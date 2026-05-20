@@ -113,7 +113,6 @@ private fun AppContent(
                             onTopPChange = {},
                             onMaxTokensChange = {},
                             onContextWindowChange = {},
-                            onStreamOutputChange = {},
                             onReset = {},
                             onSave = {},
                             previewMode = true,

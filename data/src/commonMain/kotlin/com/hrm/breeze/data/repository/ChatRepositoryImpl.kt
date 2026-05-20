@@ -16,6 +16,7 @@ import com.hrm.breeze.domain.model.ModelProfile
 import com.hrm.breeze.domain.repository.ChatRepository
 import com.hrm.breeze.domain.repository.ModelConfigRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -39,7 +40,11 @@ class ChatRepositoryImpl(
             .observeMessages(conversationId)
             .map { items -> items.map(MessageEntity::toDomain) }
 
-    override fun sendMessage(conversationId: String, text: String): Flow<Message> = flow {
+    override fun sendMessage(
+        conversationId: String,
+        text: String,
+        reasoningEnabled: Boolean,
+    ): Flow<Message> = flow {
         val now = clock.now()
         val title = text.trim().ifBlank { "新对话" }.take(32)
         val activeConfig = modelConfigRepository.getActiveModelConfig()
@@ -54,7 +59,7 @@ class ChatRepositoryImpl(
                 displayName = activeConfig.modelId,
                 endpoint = activeConfig.endpoint,
                 apiToken = activeConfig.apiToken,
-                reasoningEnabled = settingsSnapshot.reasoningEnabled,
+                reasoningEnabled = reasoningEnabled,
             )
 
         conversationDao.upsertConversation(
@@ -89,7 +94,6 @@ class ChatRepositoryImpl(
                 topP = settingsSnapshot.topP,
                 maxTokens = settingsSnapshot.maxTokens,
                 contextWindow = settingsSnapshot.contextWindow,
-                streamOutput = settingsSnapshot.streamOutput,
             )
         val provider = llmProviderRegistry.require(modelProfile.providerId)
         var assistantText = ""

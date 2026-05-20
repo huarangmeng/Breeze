@@ -18,6 +18,9 @@ class OpenAiCompatibleProvider(
                 modelId = request.model.id,
                 messages = request.messages,
                 reasoningEnabled = request.model.reasoningEnabled,
+                temperature = request.temperature,
+                topP = request.topP,
+                maxTokens = request.maxTokens,
             )
         )
     }

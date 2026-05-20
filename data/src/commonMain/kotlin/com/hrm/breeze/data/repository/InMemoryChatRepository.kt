@@ -12,5 +12,9 @@ import kotlinx.coroutines.flow.flowOf
 class InMemoryChatRepository : ChatRepository {
     override fun observeConversations(): Flow<List<Conversation>> = flowOf(emptyList())
     override fun observeMessages(conversationId: String): Flow<List<Message>> = flowOf(emptyList())
-    override fun sendMessage(conversationId: String, text: String): Flow<Message> = flowOf()
+    override fun sendMessage(
+        conversationId: String,
+        text: String,
+        reasoningEnabled: Boolean,
+    ): Flow<Message> = flowOf()
 }

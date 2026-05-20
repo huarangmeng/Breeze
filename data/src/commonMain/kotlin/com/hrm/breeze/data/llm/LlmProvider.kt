@@ -12,7 +12,6 @@ data class LlmCompletionRequest(
     val topP: Float = 0.9f,
     val maxTokens: Int = 2048,
     val contextWindow: Int = 2048,
-    val streamOutput: Boolean = true,
 )
 
 data class LlmMessage(

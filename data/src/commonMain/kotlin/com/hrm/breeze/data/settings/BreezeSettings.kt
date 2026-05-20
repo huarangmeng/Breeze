@@ -20,7 +20,6 @@ private const val DEFAULT_TEMPERATURE = 0.7f
 private const val DEFAULT_TOP_P = 0.9f
 private const val DEFAULT_MAX_TOKENS = 2048
 private const val DEFAULT_CONTEXT_WINDOW = 2048
-private const val DEFAULT_STREAM_OUTPUT = true
 
 internal const val KEY_ACTIVE_MODEL_CONFIG_ID = "model.active_config_id"
 internal const val KEY_APP_LANGUAGE_TAG = "app.language_tag"
@@ -29,7 +28,6 @@ internal const val KEY_TEMPERATURE = "model.temperature"
 internal const val KEY_TOP_P = "model.top_p"
 internal const val KEY_MAX_TOKENS = "model.max_tokens"
 internal const val KEY_CONTEXT_WINDOW = "model.context_window"
-internal const val KEY_STREAM_OUTPUT = "model.stream_output"
 
 private val activeModelConfigIdKey = stringPreferencesKey(KEY_ACTIVE_MODEL_CONFIG_ID)
 private val appLanguageTagKey = stringPreferencesKey(KEY_APP_LANGUAGE_TAG)
@@ -38,7 +36,6 @@ private val temperatureKey = floatPreferencesKey(KEY_TEMPERATURE)
 private val topPKey = floatPreferencesKey(KEY_TOP_P)
 private val maxTokensKey = intPreferencesKey(KEY_MAX_TOKENS)
 private val contextWindowKey = intPreferencesKey(KEY_CONTEXT_WINDOW)
-private val streamOutputKey = booleanPreferencesKey(KEY_STREAM_OUTPUT)
 
 data class BreezeSettingsSnapshot(
     val activeModelConfigId: String? = null,
@@ -48,7 +45,6 @@ data class BreezeSettingsSnapshot(
     val topP: Float = DEFAULT_TOP_P,
     val maxTokens: Int = DEFAULT_MAX_TOKENS,
     val contextWindow: Int = DEFAULT_CONTEXT_WINDOW,
-    val streamOutput: Boolean = DEFAULT_STREAM_OUTPUT,
 )
 
 class BreezeSettings(
@@ -106,12 +102,6 @@ class BreezeSettings(
             preferences[contextWindowKey] = value
         }
     }
-
-    suspend fun updateStreamOutput(value: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[streamOutputKey] = value
-        }
-    }
 }
 
 fun createBreezeSettings(
@@ -132,7 +122,6 @@ internal fun Preferences.toBreezeSettingsSnapshot(): BreezeSettingsSnapshot =
         topP = this[topPKey] ?: DEFAULT_TOP_P,
         maxTokens = this[maxTokensKey] ?: DEFAULT_MAX_TOKENS,
         contextWindow = this[contextWindowKey] ?: DEFAULT_CONTEXT_WINDOW,
-        streamOutput = this[streamOutputKey] ?: DEFAULT_STREAM_OUTPUT,
     )
 
 expect fun createPlatformSettingsPath(namespace: String): Path

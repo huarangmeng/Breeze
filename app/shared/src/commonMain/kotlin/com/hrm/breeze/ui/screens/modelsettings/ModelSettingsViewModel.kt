@@ -22,7 +22,6 @@ data class ModelSettingsUiState(
     val topP: Float = 0.9f,
     val maxTokens: Int = 2048,
     val contextWindow: Int = 2048,
-    val streamOutput: Boolean = true,
     val isSaving: Boolean = false,
     val hasUnsavedChanges: Boolean = false,
     val statusMessage: StringResource? = null,
@@ -37,7 +36,6 @@ class ModelSettingsViewModel(
     private val draftTopP = MutableStateFlow<Float?>(null)
     private val draftMaxTokens = MutableStateFlow<Int?>(null)
     private val draftContextWindow = MutableStateFlow<Int?>(null)
-    private val draftStreamOutput = MutableStateFlow<Boolean?>(null)
     private val isSaving = MutableStateFlow(false)
     private val statusMessage = MutableStateFlow<StringResource?>(null)
 
@@ -60,7 +58,6 @@ class ModelSettingsViewModel(
         val topP: Float,
         val maxTokens: Int,
         val contextWindow: Int,
-        val streamOutput: Boolean,
     )
 
     private data class NumericDraftOverrides(
@@ -88,15 +85,13 @@ class ModelSettingsViewModel(
     private val parameterDraftState =
         combine(
             numericDraftOverrides,
-            draftStreamOutput,
             settingsSnapshot,
-        ) { numericDraftOverrides, draftStreamOutput, settingsSnapshot ->
+        ) { numericDraftOverrides, settingsSnapshot ->
             ModelSettingsDraftState(
                 temperature = numericDraftOverrides.temperature ?: settingsSnapshot.temperature,
                 topP = numericDraftOverrides.topP ?: settingsSnapshot.topP,
                 maxTokens = numericDraftOverrides.maxTokens ?: settingsSnapshot.maxTokens,
                 contextWindow = numericDraftOverrides.contextWindow ?: settingsSnapshot.contextWindow,
-                streamOutput = draftStreamOutput ?: settingsSnapshot.streamOutput,
             )
         }
 
@@ -116,15 +111,13 @@ class ModelSettingsViewModel(
                 topP = draftState.topP,
                 maxTokens = draftState.maxTokens,
                 contextWindow = draftState.contextWindow,
-                streamOutput = draftState.streamOutput,
                 isSaving = isSaving,
                 hasUnsavedChanges =
                     selectedModelId != activeModelConfig?.modelId.orEmpty() ||
                         draftState.temperature != settingsSnapshot.temperature ||
                         draftState.topP != settingsSnapshot.topP ||
                         draftState.maxTokens != settingsSnapshot.maxTokens ||
-                        draftState.contextWindow != settingsSnapshot.contextWindow ||
-                        draftState.streamOutput != settingsSnapshot.streamOutput,
+                        draftState.contextWindow != settingsSnapshot.contextWindow,
             )
         }
 
@@ -165,18 +158,12 @@ class ModelSettingsViewModel(
         statusMessage.value = null
     }
 
-    fun onStreamOutputChange(value: Boolean) {
-        draftStreamOutput.value = value
-        statusMessage.value = null
-    }
-
     fun onReset() {
         draftModelId.value = null
         draftTemperature.value = null
         draftTopP.value = null
         draftMaxTokens.value = null
         draftContextWindow.value = null
-        draftStreamOutput.value = null
         statusMessage.value = Res.string.status_model_reset
     }
 
@@ -201,14 +188,12 @@ class ModelSettingsViewModel(
                 settings.updateTopP(currentState.topP)
                 settings.updateMaxTokens(currentState.maxTokens)
                 settings.updateContextWindow(currentState.contextWindow)
-                settings.updateStreamOutput(currentState.streamOutput)
             }.onSuccess {
                 draftModelId.value = null
                 draftTemperature.value = null
                 draftTopP.value = null
                 draftMaxTokens.value = null
                 draftContextWindow.value = null
-                draftStreamOutput.value = null
                 statusMessage.value = Res.string.status_model_saved
             }.onFailure {
                 statusMessage.value = Res.string.status_save_failed

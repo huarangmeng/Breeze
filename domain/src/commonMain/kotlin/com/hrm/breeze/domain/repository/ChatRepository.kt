@@ -14,5 +14,9 @@ interface ChatRepository {
     /**
      * 发送用户消息，返回助手端的流式响应。
      */
-    fun sendMessage(conversationId: String, text: String): Flow<Message>
+    fun sendMessage(
+        conversationId: String,
+        text: String,
+        reasoningEnabled: Boolean,
+    ): Flow<Message>
 }

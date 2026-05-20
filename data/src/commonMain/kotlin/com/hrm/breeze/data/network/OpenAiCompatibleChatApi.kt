@@ -1,24 +1,29 @@
 package com.hrm.breeze.data.network
 
+import com.hrm.breeze.core.logging.Log
 import com.hrm.breeze.data.llm.LlmStreamDelta
 import com.hrm.breeze.data.llm.LlmMessage
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.sse.sse
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
-import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.isSuccess
-import io.ktor.utils.io.readUTF8Line
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+
+private const val STREAM_LOG_TAG = "OpenAiChatStream"
 
 interface OpenAiCompatibleChatApi {
     fun streamChat(
@@ -27,6 +32,9 @@ interface OpenAiCompatibleChatApi {
         modelId: String,
         messages: List<LlmMessage>,
         reasoningEnabled: Boolean = false,
+        temperature: Float = 0.7f,
+        topP: Float = 0.9f,
+        maxTokens: Int = 2048,
     ): Flow<LlmStreamDelta>
 }
 
@@ -39,55 +47,73 @@ class KtorOpenAiCompatibleChatApi(
         modelId: String,
         messages: List<LlmMessage>,
         reasoningEnabled: Boolean,
+        temperature: Float,
+        topP: Float,
+        maxTokens: Int,
     ): Flow<LlmStreamDelta> = flow {
-        val response = httpClient.post(endpoint.toChatCompletionsUrl()) {
-            if (!apiToken.isNullOrBlank()) {
-                header(HttpHeaders.Authorization, "Bearer $apiToken")
-            }
-            header(HttpHeaders.Accept, ContentType.Text.EventStream.toString())
-            setBody(
-                OpenAiCompatibleChatRequest(
-                    model = modelId,
-                    messages = messages.map(LlmMessage::toNetwork),
-                    stream = true,
-                    reasoning = if (reasoningEnabled) OpenAiCompatibleReasoningRequest(enabled = true) else null,
+        httpClient.sse(endpoint.toChatCompletionsUrl(), request = {
+            applyChatRequest(
+                apiToken = apiToken,
+                modelId = modelId,
+                messages = messages,
+                reasoningEnabled = reasoningEnabled,
+                temperature = temperature,
+                topP = topP,
+                maxTokens = maxTokens,
+            )
+        }) {
+            if (!call.response.status.isSuccess()) {
+                val responseText = call.response.bodyAsText()
+                throw OpenAiCompatibleApiException(
+                    statusCode = call.response.status.value,
+                    statusDescription = call.response.status.description,
+                    serviceMessage = responseText.extractServiceMessage(),
                 )
-            )
-        }
-
-        if (!response.status.isSuccess()) {
-            val responseText = response.bodyAsText()
-            throw OpenAiCompatibleApiException(
-                statusCode = response.status.value,
-                statusDescription = response.status.description,
-                serviceMessage = responseText.extractServiceMessage(),
-            )
-        }
-
-        val channel = response.bodyAsChannel()
-        val eventPayload = mutableListOf<String>()
-
-        while (true) {
-            val line = channel.readUTF8Line() ?: break
-            when {
-                line.startsWith("data:") -> {
-                    val data = line.removePrefix("data:").trim()
-                    if (data == "[DONE]") {
-                        break
-                    }
-                    if (data.isNotEmpty()) {
-                        eventPayload += data
-                    }
-                }
-
-                line.isBlank() -> {
-                    eventPayload.consumeAsDeltaOrNull()?.let { emit(it) }
-                }
             }
-        }
 
-        eventPayload.consumeAsDeltaOrNull()?.let { emit(it) }
+            incoming
+                .takeWhile { event ->
+                    val data = event.data?.trim().orEmpty()
+                    if (data.isEmpty()) {
+                        true
+                    } else {
+                        Log.d(STREAM_LOG_TAG) { "SSE data: $data" }
+                        data != "[DONE]"
+                    }
+                }.collect { event ->
+                    val data = event.data?.trim().orEmpty()
+                    if (data.isEmpty()) return@collect
+                    data.extractStreamDeltaOrNull()?.also(::logStreamDelta)?.let { emit(it) }
+                }
+        }
     }
+}
+
+private fun HttpRequestBuilder.applyChatRequest(
+    apiToken: String?,
+    modelId: String,
+    messages: List<LlmMessage>,
+    reasoningEnabled: Boolean,
+    temperature: Float,
+    topP: Float,
+    maxTokens: Int,
+) {
+    method = HttpMethod.Post
+    if (!apiToken.isNullOrBlank()) {
+        header(HttpHeaders.Authorization, "Bearer $apiToken")
+    }
+    header(HttpHeaders.Accept, ContentType.Text.EventStream.toString())
+    setBody(
+        OpenAiCompatibleChatRequest(
+            model = modelId,
+            messages = messages.map(LlmMessage::toNetwork),
+            stream = true,
+            temperature = temperature,
+            topP = topP,
+            maxTokens = maxTokens,
+            reasoning = if (reasoningEnabled) OpenAiCompatibleReasoningRequest(enabled = true) else null,
+        )
+    )
 }
 
 private fun String.toChatCompletionsUrl(): String {
@@ -121,16 +147,17 @@ private fun JsonElement?.extractNestedMessage(): String? {
         ?: obj["metadata"]?.jsonObject?.get("raw")?.jsonPrimitive?.contentOrNull
 }
 
-private fun MutableList<String>.consumeAsDeltaOrNull(): LlmStreamDelta? {
-    if (isEmpty()) return null
-    val payload = joinToString(separator = "\n")
-    clear()
-    return payload.extractStreamDeltaOrNull()
+private fun logStreamDelta(delta: LlmStreamDelta) {
+    Log.d(STREAM_LOG_TAG) {
+        "SSE delta: content='${delta.contentDelta}' reasoning='${delta.reasoningDelta}'"
+    }
 }
 
 private fun String.extractStreamDeltaOrNull(): LlmStreamDelta? =
     runCatching {
-        BreezeJson.decodeFromString<OpenAiCompatibleChatStreamResponse>(this).choices.fold(
+        val response = BreezeJson.decodeFromString<OpenAiCompatibleChatStreamResponse>(this)
+        response.error?.let { throw OpenAiCompatibleStreamException(it.message) }
+        response.choices.fold(
             initial = LlmStreamDelta(),
         ) { acc, choice ->
             val delta = choice.delta
@@ -139,6 +166,8 @@ private fun String.extractStreamDeltaOrNull(): LlmStreamDelta? =
                 reasoningDelta = acc.reasoningDelta + delta?.reasoning.orEmpty(),
             )
         }.takeUnless(LlmStreamDelta::isEmpty)
+    }.onFailure { throwable ->
+        Log.w(STREAM_LOG_TAG, throwable) { "Failed to parse SSE payload: $this" }
     }.getOrNull()
 
 class OpenAiCompatibleApiException(
@@ -146,6 +175,10 @@ class OpenAiCompatibleApiException(
     val statusDescription: String,
     val serviceMessage: String?,
 ) : IllegalStateException(buildMessage(statusCode, statusDescription, serviceMessage))
+
+class OpenAiCompatibleStreamException(
+    message: String,
+) : IllegalStateException(message)
 
 private fun buildMessage(
     statusCode: Int,
@@ -165,7 +198,13 @@ private fun buildMessage(
 private data class OpenAiCompatibleChatRequest(
     val model: String,
     val messages: List<OpenAiCompatibleMessage>,
-    val stream: Boolean = false,
+    val stream: Boolean = true,
+    @SerialName("temperature")
+    val temperature: Float? = null,
+    @SerialName("top_p")
+    val topP: Float? = null,
+    @SerialName("max_tokens")
+    val maxTokens: Int? = null,
     val reasoning: OpenAiCompatibleReasoningRequest? = null,
 )
 
@@ -183,6 +222,7 @@ private data class OpenAiCompatibleReasoningRequest(
 @Serializable
 private data class OpenAiCompatibleChatStreamResponse(
     val choices: List<OpenAiCompatibleStreamChoice> = emptyList(),
+    val error: OpenAiCompatibleStreamError? = null,
 )
 
 @Serializable
@@ -194,4 +234,9 @@ private data class OpenAiCompatibleStreamChoice(
 private data class OpenAiCompatibleStreamDelta(
     val content: String? = null,
     val reasoning: String? = null,
+)
+
+@Serializable
+private data class OpenAiCompatibleStreamError(
+    val message: String,
 )

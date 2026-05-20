@@ -14,7 +14,6 @@ import com.hrm.breeze.data.network.OpenAiCompatibleChatApi
 import com.hrm.breeze.data.network.createBreezeHttpClient
 import com.hrm.breeze.data.repository.ChatRepositoryImpl
 import com.hrm.breeze.data.repository.ModelConfigRepositoryImpl
-import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.data.settings.createBreezeSettings
 import com.hrm.breeze.data.storage.BreezeDatabase
 import com.hrm.breeze.domain.model.LlmProviderId
@@ -32,14 +31,14 @@ import org.koin.dsl.module
 private val infrastructureModule =
     module {
         single<AppDispatchers> { defaultAppDispatchers() }
-        single<BreezeSettings> { createBreezeSettings() }
+        single { createBreezeSettings() }
         single<HttpClient> { createBreezeHttpClient() }
         single<BreezeDatabase> {
             BreezeDatabase.create(dispatchers = get())
         }
         single { get<BreezeDatabase>().onDeviceModelAssetDao() }
         single<OpenAiCompatibleChatApi> { KtorOpenAiCompatibleChatApi(get()) }
-        single { OnDeviceRuntimeManager() }
+        single { OnDeviceRuntimeManager(get()) }
         single {
             OnDeviceModelRepository(
                 assetDao = get(),
@@ -48,7 +47,7 @@ private val infrastructureModule =
                 runtimeManager = get(),
             )
         }
-        single { LocalProvider(get(), get()) }
+        single { LocalProvider(get(), get(), get()) }
         single<ModelConfigRepository> { ModelConfigRepositoryImpl(get(), get()) }
         single {
             LlmProviderRegistry(
@@ -73,7 +72,7 @@ private val infrastructureModule =
 
 private val presentationModule =
     module {
-        viewModel { ChatViewModel(get(), get(), get(), get()) }
+        viewModel { ChatViewModel(get(), get(), get()) }
         viewModel { HistoryViewModel(get()) }
         viewModel { ApiConfigViewModel(get(), get(), get()) }
         viewModel { ModelSettingsViewModel(get(), get()) }

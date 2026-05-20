@@ -61,12 +61,19 @@ class OnDeviceModelRepository(
         )
     }
 
-    suspend fun ensureCurrentModelReady(): OnDeviceModelState {
+    suspend fun ensureCurrentModelReady(
+        contextWindow: Int? = null,
+    ): OnDeviceModelState {
         val current = observeCurrentModel().first() ?: error("No on-device model selected")
         if (!current.isReadyForChat) {
             error("Selected on-device model is not ready")
         }
-        val runtimeState = runtimeManager.ensureModelReady(current.localPath)
+        val runtimeState =
+            runtimeManager.ensureModelReady(
+                modelId = current.preset.id,
+                localPath = current.localPath,
+                contextWindow = contextWindow ?: current.preset.recommendedContextWindow,
+            )
         if (runtimeState != InferenceRuntimeState.Ready) {
             assetDao.upsertAsset(
                 current.toEntity(

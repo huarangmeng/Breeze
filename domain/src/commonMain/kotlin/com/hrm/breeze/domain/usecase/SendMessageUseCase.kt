@@ -7,6 +7,10 @@ import kotlinx.coroutines.flow.Flow
 class SendMessageUseCase(
     private val repository: ChatRepository,
 ) {
-    operator fun invoke(conversationId: String, text: String): Flow<Message> =
-        repository.sendMessage(conversationId, text)
+    operator fun invoke(
+        conversationId: String,
+        text: String,
+        reasoningEnabled: Boolean,
+    ): Flow<Message> =
+        repository.sendMessage(conversationId, text, reasoningEnabled)
 }

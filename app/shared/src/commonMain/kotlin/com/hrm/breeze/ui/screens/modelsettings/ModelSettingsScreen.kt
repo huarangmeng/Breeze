@@ -18,7 +18,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,7 +41,6 @@ fun ModelSettingsScreen(
     onTopPChange: (Float) -> Unit,
     onMaxTokensChange: (Int) -> Unit,
     onContextWindowChange: (Int) -> Unit,
-    onStreamOutputChange: (Boolean) -> Unit,
     onReset: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -143,10 +141,6 @@ fun ModelSettingsScreen(
                             maxLabel = "32768",
                             sliderValue = ((state.contextWindow - 1024).toFloat() / (32768 - 1024).toFloat()).coerceIn(0f, 1f),
                             onSliderValueChange = { onContextWindowChange((1024 + it * (32768 - 1024)).roundToInt()) },
-                        )
-                        StreamOutputRow(
-                            checked = state.streamOutput,
-                            onCheckedChange = onStreamOutputChange,
                         )
                         ModelSettingsActions(
                             state = state,
@@ -346,51 +340,6 @@ private fun formatTwoDecimals(value: Float): String {
     val whole = scaled / 100
     val fraction = (scaled % 100).toString().padStart(2, '0')
     return "$whole.$fraction"
-}
-
-@Composable
-private fun StreamOutputRow(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val shapes = BreezeTheme.shapes
-    val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
-    val extra = BreezeTheme.extendedColors
-
-    Surface(
-        color = scheme.surface,
-        shape = shapes.medium,
-        border = BorderStroke(spacing.hairline, scheme.outlineVariant),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(spacing.md),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(spacing.xxs),
-            ) {
-                Text(
-                    text = stringResource(Res.string.stream_output),
-                    style = typography.labelLarge,
-                    color = scheme.onSurface,
-                )
-                Text(
-                    text = stringResource(Res.string.stream_output_description),
-                    style = typography.bodySmall,
-                    color = extra.textSecondary,
-                )
-            }
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-            )
-        }
-    }
 }
 
 @Composable

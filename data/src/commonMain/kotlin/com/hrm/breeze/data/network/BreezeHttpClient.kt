@@ -12,6 +12,7 @@ import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.sse.SSE
+import io.ktor.client.plugins.sse.SSEBufferPolicy
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -78,11 +79,18 @@ private fun HttpClientConfig<*>.applyBreezeDefaults() {
                 Log.d(HTTP_LOG_TAG) { message }
             }
         }
+        filter { request ->
+            request.headers.getAll(HttpHeaders.Accept)
+                ?.none { it.contains(ContentType.Text.EventStream.toString()) }
+                ?: true
+        }
         level = LogLevel.ALL
         sanitizeHeader { header -> header == HttpHeaders.Authorization }
     }
 
-    install(SSE)
+    install(SSE) {
+        bufferPolicy = SSEBufferPolicy.LastEvents(10)
+    }
 
     defaultRequest {
         headers.append(HttpHeaders.Accept, ContentType.Application.Json.toString())

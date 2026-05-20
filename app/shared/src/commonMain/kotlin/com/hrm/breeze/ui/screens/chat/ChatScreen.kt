@@ -14,11 +14,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.hrm.breeze.data.settings.BreezeSettingsSnapshot
 import com.hrm.breeze.domain.model.Conversation
 import com.hrm.breeze.domain.model.Message
-import com.hrm.breeze.domain.model.ModelConfig
 import com.hrm.breeze.domain.model.LlmProviderId
+import com.hrm.breeze.domain.model.ModelConfig
 import com.hrm.breeze.getPlatform
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.adaptive.PaneMode
@@ -230,8 +229,8 @@ internal fun previewChatUiState(): ChatUiState {
         activeModelConfig = previewConfigs.first(),
         activeConversationId = conversationId,
         draft = "",
+        reasoningEnabled = false,
         isSending = false,
         errorMessage = null,
-        settings = BreezeSettingsSnapshot(),
     )
 }
