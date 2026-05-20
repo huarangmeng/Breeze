@@ -18,7 +18,7 @@ import com.hrm.breeze.domain.model.Conversation
 import com.hrm.breeze.domain.model.Message
 import com.hrm.breeze.domain.model.LlmProviderId
 import com.hrm.breeze.domain.model.ModelConfig
-import com.hrm.breeze.getPlatform
+import com.hrm.breeze.platform.platformInfo
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.adaptive.PaneMode
 import com.hrm.breeze.ui.navigation.Chat
@@ -48,7 +48,7 @@ fun ChatScreen(
 ) {
     val windowInfo = LocalWindowInfo.current
     val spacing = BreezeTheme.spacing
-    val isMacDesktop = windowInfo.paneMode != PaneMode.Single && getPlatform().isMacDesktop
+    val isMacDesktop = windowInfo.paneMode != PaneMode.Single && platformInfo.isMacDesktop
     val macSidebarLeadingInset = 0.dp
     val macSidebarTopInset = if (isMacDesktop) spacing.sm else 0.dp
     val macHeaderTopInset = if (isMacDesktop) spacing.sm else 0.dp
@@ -232,5 +232,6 @@ internal fun previewChatUiState(): ChatUiState {
         reasoningEnabled = false,
         isSending = false,
         errorMessage = null,
+        errorDetail = null,
     )
 }

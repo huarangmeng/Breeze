@@ -10,6 +10,7 @@ import com.hrm.breeze.domain.model.OnDeviceDownloadStatus
 import com.hrm.breeze.domain.model.OnDeviceModelPreset
 import com.hrm.breeze.domain.model.OnDeviceModelState
 import com.hrm.breeze.domain.repository.ModelConfigRepository
+import com.hrm.breeze.runtime.api.OnDeviceRuntimeCapability
 import com.hrm.breeze.runtime.api.OnDeviceRuntime
 import io.ktor.client.HttpClient
 import io.ktor.client.request.prepareGet
@@ -17,6 +18,7 @@ import io.ktor.client.statement.HttpStatement
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import okio.Path
 import okio.Path.Companion.toPath
@@ -29,13 +31,20 @@ class OnDeviceModelRepository(
     private val modelPaths: BreezeModelPaths = createBreezeModelPaths(),
 ) {
     val presets: List<OnDeviceModelPreset> = OnDeviceModelCatalog.presets
+    val runtimeCapability: OnDeviceRuntimeCapability
+        get() = runtimeManager.capability
 
     fun observeModels(): Flow<List<OnDeviceModelState>> =
         combine(
             assetDao.observeAssets(),
             modelConfigRepository.observeActiveModelConfig(),
         ) { assets, activeModelConfig ->
-            val assetsById = assets.associateBy(OnDeviceModelAssetEntity::presetId)
+            val stalePresetIds = assets.filter(::isStaleAsset).map(OnDeviceModelAssetEntity::presetId)
+            for (presetId in stalePresetIds) {
+                assetDao.deleteAsset(presetId)
+            }
+            val sanitizedAssets = assets.filterNot(::isStaleAsset)
+            val assetsById = sanitizedAssets.associateBy(OnDeviceModelAssetEntity::presetId)
             presets.map { preset ->
                 assetsById[preset.id].toDomain(
                     preset = preset,
@@ -48,7 +57,10 @@ class OnDeviceModelRepository(
         observeModels().map { models -> models.firstOrNull(OnDeviceModelState::isCurrent) }
 
     suspend fun selectModel(presetId: String) {
-        OnDeviceModelCatalog.requirePreset(presetId)
+        requireRuntimeAvailable()
+        val preset = OnDeviceModelCatalog.requirePreset(presetId)
+        cleanupMissingAsset(presetId)
+        requireModelFileExists(preset)
         modelConfigRepository.createAndActivateConfig(
             providerId = LlmProviderId.Local,
             endpoint = LOCAL_RUNTIME_ENDPOINT,
@@ -61,6 +73,7 @@ class OnDeviceModelRepository(
         contextWindow: Int? = null,
     ): OnDeviceModelState {
         val current = observeCurrentModel().first() ?: error("No on-device model selected")
+        cleanupMissingAsset(current.preset.id)
         return ensureModelReady(current, contextWindow)
     }
 
@@ -68,6 +81,8 @@ class OnDeviceModelRepository(
         current: OnDeviceModelState,
         contextWindow: Int?,
     ): OnDeviceModelState {
+        requireRuntimeAvailable()
+        requireModelFileExists(current.preset)
         if (!current.isReadyForChat) {
             error("Selected on-device model is not ready")
         }
@@ -106,6 +121,7 @@ class OnDeviceModelRepository(
     }
 
     suspend fun downloadModel(presetId: String) {
+        requireModelPersistenceSupported()
         val preset = OnDeviceModelCatalog.requirePreset(presetId)
         ensureDirectories()
         val tempPath = child(modelPaths.temp, "${preset.id}.partial")
@@ -184,6 +200,37 @@ class OnDeviceModelRepository(
 
     private fun ensureDirectories() {
         ensureModelDirectories(modelPaths)
+    }
+
+    private suspend fun cleanupMissingAsset(presetId: String) {
+        val asset = assetDao.getAsset(presetId) ?: return
+        if (isStaleAsset(asset)) {
+            assetDao.deleteAsset(presetId)
+        }
+    }
+
+    private fun requireModelFileExists(preset: OnDeviceModelPreset) {
+        if (!modelFileExists(child(modelPaths.files, preset.fileName))) {
+            error("Selected on-device model file is missing")
+        }
+    }
+
+    private fun isStaleAsset(asset: OnDeviceModelAssetEntity): Boolean {
+        if (asset.localPath.isNullOrBlank()) return false
+        val preset = OnDeviceModelCatalog.findPreset(asset.presetId) ?: return true
+        return !modelFileExists(child(modelPaths.files, preset.fileName))
+    }
+
+    private fun requireRuntimeAvailable() {
+        if (!runtimeCapability.isAvailable) {
+            error(runtimeCapability.unavailableReason ?: "On-device runtime is not available on this platform")
+        }
+    }
+
+    private fun requireModelPersistenceSupported() {
+        if (!runtimeCapability.supportsModelPersistence) {
+            error(runtimeCapability.unavailableReason ?: "On-device model persistence is not available on this platform")
+        }
     }
 }
 

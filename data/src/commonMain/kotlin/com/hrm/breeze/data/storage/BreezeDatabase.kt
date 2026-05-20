@@ -1,5 +1,6 @@
 package com.hrm.breeze.data.storage
 
+import androidx.room3.AutoMigration
 import androidx.room3.ConstructedBy
 import androidx.room3.Database
 import androidx.room3.RoomDatabase
@@ -8,23 +9,33 @@ import androidx.sqlite.SQLiteDriver
 import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.core.coroutines.defaultAppDispatchers
 import com.hrm.breeze.data.storage.dao.ConversationDao
+import com.hrm.breeze.data.storage.dao.ConversationSummaryDao
 import com.hrm.breeze.data.storage.dao.MessageDao
 import com.hrm.breeze.data.storage.dao.ModelConfigDao
 import com.hrm.breeze.data.storage.dao.OnDeviceModelAssetDao
 import com.hrm.breeze.data.storage.driver.createPlatformSQLiteDriver
 import com.hrm.breeze.data.storage.entity.ConversationEntity
+import com.hrm.breeze.data.storage.entity.ConversationSummaryEntity
 import com.hrm.breeze.data.storage.entity.MessageEntity
 import com.hrm.breeze.data.storage.entity.ModelConfigEntity
 import com.hrm.breeze.data.storage.entity.OnDeviceModelAssetEntity
 
 @Database(
-    entities = [ConversationEntity::class, MessageEntity::class, ModelConfigEntity::class, OnDeviceModelAssetEntity::class],
-    version = 1,
+    entities = [
+        ConversationEntity::class,
+        ConversationSummaryEntity::class,
+        MessageEntity::class,
+        ModelConfigEntity::class,
+        OnDeviceModelAssetEntity::class,
+    ],
+    version = 2,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 @ConstructedBy(BreezeDatabaseConstructor::class)
 abstract class BreezeDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
+    abstract fun conversationSummaryDao(): ConversationSummaryDao
     abstract fun messageDao(): MessageDao
     abstract fun modelConfigDao(): ModelConfigDao
     abstract fun onDeviceModelAssetDao(): OnDeviceModelAssetDao

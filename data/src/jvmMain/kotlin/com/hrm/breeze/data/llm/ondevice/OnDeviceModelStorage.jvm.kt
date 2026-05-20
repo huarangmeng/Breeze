@@ -21,6 +21,8 @@ internal actual fun deleteModelFile(path: Path) {
     FileSystem.SYSTEM.delete(path, mustExist = false)
 }
 
+internal actual fun modelFileExists(path: Path): Boolean = FileSystem.SYSTEM.exists(path)
+
 internal actual suspend fun persistStatementToFile(
     statement: HttpStatement,
     tempPath: Path,

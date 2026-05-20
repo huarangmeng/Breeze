@@ -28,3 +28,13 @@ compose.desktop {
         }
     }
 }
+
+tasks.matching { task -> task.name.contains("Msi", ignoreCase = true) }.configureEach {
+    dependsOn(":runtime:llama:verifyDesktopLlamaBundledRuntime")
+    doFirst {
+        check(System.getProperty("os.name").lowercase().contains("win")) {
+            "Windows MSI packaging must run on a Windows host. " +
+                "The bundled Desktop llama runtime is host-specific and cannot be packaged into an MSI from ${System.getProperty("os.name")}."
+        }
+    }
+}

@@ -8,6 +8,8 @@ internal actual fun ensureModelDirectories(modelPaths: BreezeModelPaths) = Unit
 
 internal actual fun deleteModelFile(path: Path) = Unit
 
+internal actual fun modelFileExists(path: Path): Boolean = false
+
 internal actual suspend fun persistStatementToFile(
     statement: HttpStatement,
     tempPath: Path,

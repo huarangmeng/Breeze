@@ -11,6 +11,9 @@ import com.hrm.breeze.data.llm.LlmProviderRegistry
 import com.hrm.breeze.data.llm.LlmStreamDelta
 import com.hrm.breeze.data.settings.BreezeSettings
 import com.hrm.breeze.data.storage.BreezeDatabase
+import com.hrm.breeze.data.storage.entity.ConversationEntity
+import com.hrm.breeze.data.storage.entity.ConversationSummaryEntity
+import com.hrm.breeze.data.storage.entity.MessageEntity
 import com.hrm.breeze.data.storage.createPlatformDatabaseBuilder
 import com.hrm.breeze.domain.model.LlmProviderId
 import kotlinx.coroutines.CoroutineDispatcher
@@ -35,7 +38,7 @@ class ChatRepositoryImplJvmTest {
     @Test
     fun sendMessagePersistsConversationAndMessages() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
-        val dispatchers = TestAppDispatchers(dispatcher)
+        val dispatchers = ChatRepositoryTestDispatchers(dispatcher)
         val tempDirectory = Files.createTempDirectory("breeze-chat-repository-test")
         val database = createDatabase(tempDirectory.toString(), dispatchers)
         val settings = createSettings(tempDirectory.toString())
@@ -60,7 +63,7 @@ class ChatRepositoryImplJvmTest {
             )
 
         modelConfigRepository.createAndActivateConfig(
-            providerId = LlmProviderId.Local,
+            providerId = LlmProviderId.OpenAI,
             endpoint = "local://runtime",
             apiToken = null,
             modelId = "mock-model",
@@ -100,7 +103,7 @@ class ChatRepositoryImplJvmTest {
     @Test
     fun sendMessagePersistsAssistantDraftAsStreamArrives() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
-        val dispatchers = TestAppDispatchers(dispatcher)
+        val dispatchers = ChatRepositoryTestDispatchers(dispatcher)
         val tempDirectory = Files.createTempDirectory("breeze-chat-repository-stream-test")
         val database = createDatabase(tempDirectory.toString(), dispatchers)
         val settings = createSettings(tempDirectory.toString())
@@ -125,7 +128,7 @@ class ChatRepositoryImplJvmTest {
             )
 
         modelConfigRepository.createAndActivateConfig(
-            providerId = LlmProviderId.Local,
+            providerId = LlmProviderId.OpenAI,
             endpoint = "local://runtime",
             apiToken = null,
             modelId = "mock-model",
@@ -151,7 +154,7 @@ class ChatRepositoryImplJvmTest {
     @Test
     fun sendMessagePersistsReasoningSeparatelyFromAnswer() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
-        val dispatchers = TestAppDispatchers(dispatcher)
+        val dispatchers = ChatRepositoryTestDispatchers(dispatcher)
         val tempDirectory = Files.createTempDirectory("breeze-chat-repository-reasoning-test")
         val database = createDatabase(tempDirectory.toString(), dispatchers)
         val settings = createSettings(tempDirectory.toString())
@@ -176,7 +179,7 @@ class ChatRepositoryImplJvmTest {
             )
 
         modelConfigRepository.createAndActivateConfig(
-            providerId = LlmProviderId.Local,
+            providerId = LlmProviderId.OpenAI,
             endpoint = "local://runtime",
             apiToken = null,
             modelId = "mock-model",
@@ -197,6 +200,81 @@ class ChatRepositoryImplJvmTest {
             assertEquals(2, messages.size)
             assertEquals("Final answer", messages.last().content)
             assertEquals("先分析问题，再组织答案", messages.last().reasoningContent)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
+    fun sendMessageUsesSummaryAndRecentMessagesForProviderContext() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dispatchers = ChatRepositoryTestDispatchers(dispatcher)
+        val tempDirectory = Files.createTempDirectory("breeze-chat-repository-context-test")
+        val database = createDatabase(tempDirectory.toString(), dispatchers)
+        val settings = createSettings(tempDirectory.toString())
+        val modelConfigRepository = ModelConfigRepositoryImpl(database, settings, clock = Clock.System)
+        val provider = CapturingLocalProvider()
+        val providerRegistry = LlmProviderRegistry(listOf(provider))
+        val repository =
+            ChatRepositoryImpl(
+                database = database,
+                llmProviderRegistry = providerRegistry,
+                modelConfigRepository = modelConfigRepository,
+                settings = settings,
+                dispatchers = dispatchers,
+                clock = Clock.System,
+            )
+
+        modelConfigRepository.createAndActivateConfig(
+            providerId = LlmProviderId.OpenAI,
+            endpoint = "local://runtime",
+            apiToken = null,
+            modelId = "mock-model",
+        )
+        database.conversationDao().upsertConversation(
+            ConversationEntity(
+                id = "conversation-context",
+                title = "context",
+                modelId = "mock-model",
+                updatedAtEpochMillis = 12,
+            )
+        )
+        (1..12).forEach { index ->
+            database.messageDao().insertMessage(
+                MessageEntity(
+                    id = "m$index",
+                    conversationId = "conversation-context",
+                    role = if (index % 2 == 0) "assistant" else "user",
+                    content = "message-$index",
+                    createdAtEpochMillis = index.toLong(),
+                )
+            )
+        }
+        database.conversationSummaryDao().upsertSummary(
+            ConversationSummaryEntity(
+                conversationId = "conversation-context",
+                summary = "Earlier messages established the project constraints.",
+                coveredUntilMessageCreatedAtEpochMillis = 8,
+                coveredUntilMessageId = "m8",
+                updatedAtEpochMillis = 20,
+            )
+        )
+        advanceUntilIdle()
+
+        try {
+            repository.sendMessage(
+                conversationId = "conversation-context",
+                text = "new question",
+                reasoningEnabled = false,
+            ).toList()
+            advanceUntilIdle()
+
+            val chatRequest = provider.requests.first()
+
+            assertTrue(chatRequest.messages.first().content.contains("Earlier messages established"))
+            assertTrue(chatRequest.messages.any { it.content == "message-9" })
+            assertTrue(chatRequest.messages.none { it.content == "message-8" })
+            assertEquals("new question", chatRequest.messages.last().content)
         } finally {
             database.close()
         }
@@ -222,7 +300,7 @@ private fun createSettings(
         )
 )
 
-private class TestAppDispatchers(
+private class ChatRepositoryTestDispatchers(
     dispatcher: CoroutineDispatcher,
 ) : AppDispatchers {
     override val main: CoroutineDispatcher = dispatcher
@@ -243,7 +321,7 @@ private class SequenceClock(
 }
 
 private class StreamingLocalProvider : LlmProvider {
-    override val id: LlmProviderId = LlmProviderId.Local
+    override val id: LlmProviderId = LlmProviderId.OpenAI
 
     override fun stream(request: LlmCompletionRequest) = flowOf(
         LlmStreamDelta(contentDelta = "Breeze "),
@@ -255,7 +333,7 @@ private class StreamingLocalProvider : LlmProvider {
 }
 
 private class TestLocalProvider : LlmProvider {
-    override val id: LlmProviderId = LlmProviderId.Local
+    override val id: LlmProviderId = LlmProviderId.OpenAI
 
     override fun stream(request: LlmCompletionRequest) = flowOf(
         LlmStreamDelta(contentDelta = "Breeze local(${request.model.id}): ${request.messages.last().content}"),
@@ -263,11 +341,22 @@ private class TestLocalProvider : LlmProvider {
 }
 
 private class ReasoningLocalProvider : LlmProvider {
-    override val id: LlmProviderId = LlmProviderId.Local
+    override val id: LlmProviderId = LlmProviderId.OpenAI
 
     override fun stream(request: LlmCompletionRequest) = flowOf(
         LlmStreamDelta(reasoningDelta = "先分析问题"),
         LlmStreamDelta(reasoningDelta = "，再组织答案"),
         LlmStreamDelta(contentDelta = "Final answer"),
     )
+}
+
+private class CapturingLocalProvider : LlmProvider {
+    override val id: LlmProviderId = LlmProviderId.OpenAI
+    val requests = mutableListOf<LlmCompletionRequest>()
+
+    override fun stream(request: LlmCompletionRequest) = flowOf(
+        LlmStreamDelta(contentDelta = "captured"),
+    ).also {
+        requests += request
+    }
 }

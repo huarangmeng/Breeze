@@ -21,4 +21,6 @@ interface ModelConfigRepository {
     suspend fun setActiveConfig(configId: String)
 
     suspend fun updateActiveConfigModelId(modelId: String)
+
+    suspend fun removeConfig(configId: String)
 }

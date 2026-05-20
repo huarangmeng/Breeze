@@ -1,14 +1,15 @@
 package com.hrm.breeze.data.platform
 
+import com.hrm.breeze.platform.PlatformKind
+import com.hrm.breeze.platform.platformInfo
 import java.io.File
 
 internal fun resolveBreezeJvmAppSupportFile(relativePath: String): File {
     val userHome = System.getProperty("user.home")
-    val osName = System.getProperty("os.name").lowercase()
     val baseDirectory =
-        when {
-            osName.contains("mac") -> File(userHome, "Library/Application Support/Breeze")
-            osName.contains("win") -> {
+        when (platformInfo.kind) {
+            PlatformKind.MacOS -> File(userHome, "Library/Application Support/Breeze")
+            PlatformKind.Windows -> {
                 val appData = System.getenv("APPDATA")
                 if (appData.isNullOrBlank()) {
                     File(userHome, "AppData/Roaming/Breeze")

@@ -401,12 +401,23 @@ private fun ComposerBar(
                 color = scheme.errorContainer,
                 shape = shapes.medium,
             ) {
-                Text(
-                    text = stringResource(errorMessage),
+                Column(
                     modifier = Modifier.padding(spacing.sm),
-                    style = typography.bodySmall,
-                    color = scheme.onErrorContainer,
-                )
+                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                ) {
+                    Text(
+                        text = stringResource(errorMessage),
+                        style = typography.bodySmall,
+                        color = scheme.onErrorContainer,
+                    )
+                    state.errorDetail?.let { errorDetail ->
+                        Text(
+                            text = errorDetail,
+                            style = typography.bodySmall,
+                            color = scheme.onErrorContainer.copy(alpha = 0.9f),
+                        )
+                    }
+                }
             }
         }
 

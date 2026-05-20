@@ -1,5 +1,51 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import java.io.File
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.TaskAction
+
+abstract class ValidateDesktopLlamaBuildHostTask : DefaultTask() {
+    @get:Input
+    abstract val targetPlatform: Property<String>
+
+    @get:Input
+    abstract val hostPlatform: Property<String>
+
+    @TaskAction
+    fun validate() {
+        check(targetPlatform.get() == hostPlatform.get()) {
+            "Cross-compiling the Desktop llama runtime is not supported yet. " +
+                "Requested target=${targetPlatform.get()}, current host=${hostPlatform.get()}. " +
+                "Build Windows runtime and MSI artifacts on a Windows host."
+        }
+    }
+}
+
+abstract class VerifyBundledDesktopLlamaRuntimeTask : DefaultTask() {
+    @get:InputDirectory
+    abstract val resourcesDirectory: DirectoryProperty
+
+    @get:Input
+    abstract val resourcePath: Property<String>
+
+    @get:Input
+    abstract val libraryName: Property<String>
+
+    @get:Input
+    abstract val targetPlatform: Property<String>
+
+    @TaskAction
+    fun verify() {
+        val bundledLibrary = resourcesDirectory.get().file("${resourcePath.get()}/${libraryName.get()}").asFile
+        check(bundledLibrary.isFile) {
+            "Expected bundled Desktop llama runtime at ${bundledLibrary.absolutePath}, " +
+                "but it was not produced for target ${targetPlatform.get()}."
+        }
+    }
+}
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -36,6 +82,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(projects.core)
             api(projects.runtime.api)
             implementation(libs.kotlinx.coroutines.core)
         }
@@ -50,33 +97,51 @@ kotlin {
     }
 }
 
-val desktopLlamaOsSegment: String =
+fun normalizeDesktopLlamaOsSegment(value: String): String =
+    when {
+        value.contains("mac") -> "macos"
+        value.contains("win") -> "windows"
+        value.contains("linux") -> "linux"
+        else -> value.replace(Regex("[^a-z0-9]+"), "-")
+    }
+
+fun normalizeDesktopLlamaArchSegment(value: String): String =
+    when {
+        value == "aarch64" || value == "arm64" -> "arm64"
+        value == "x86_64" || value == "amd64" -> "x64"
+        else -> value.replace(Regex("[^a-z0-9]+"), "-")
+    }
+
+val desktopLlamaHostOsSegment: String =
     run {
         val os = System.getProperty("os.name").lowercase()
-        when {
-            os.contains("mac") -> "macos"
-            os.contains("win") -> "windows"
-            os.contains("linux") -> "linux"
-            else -> os.replace(Regex("[^a-z0-9]+"), "-")
-        }
+        normalizeDesktopLlamaOsSegment(os)
     }
 
-val desktopLlamaArchSegment: String =
+val desktopLlamaHostArchSegment: String =
     run {
         val arch = System.getProperty("os.arch").lowercase()
-        when {
-            arch == "aarch64" || arch == "arm64" -> "arm64"
-            arch == "x86_64" || arch == "amd64" -> "x64"
-            else -> arch.replace(Regex("[^a-z0-9]+"), "-")
-        }
+        normalizeDesktopLlamaArchSegment(arch)
     }
 
-val desktopLlamaPlatform = "$desktopLlamaOsSegment-$desktopLlamaArchSegment"
+val desktopLlamaTargetOsSegment =
+    providers.gradleProperty("breezeDesktopLlamaTargetOs")
+        .orElse(desktopLlamaHostOsSegment)
+        .map { normalizeDesktopLlamaOsSegment(it.lowercase()) }
+val desktopLlamaTargetArchSegment =
+    providers.gradleProperty("breezeDesktopLlamaTargetArch")
+        .orElse(desktopLlamaHostArchSegment)
+        .map { normalizeDesktopLlamaArchSegment(it.lowercase()) }
+val desktopLlamaHostPlatform = "$desktopLlamaHostOsSegment-$desktopLlamaHostArchSegment"
+val desktopLlamaPlatform =
+    providers.provider {
+        "${desktopLlamaTargetOsSegment.get()}-${desktopLlamaTargetArchSegment.get()}"
+    }
 val desktopLlamaGpuBackend =
     providers.gradleProperty("breezeDesktopLlamaGpuBackend").orElse("auto").map { requested ->
         when (val normalized = requested.lowercase()) {
             "auto" ->
-                when (desktopLlamaOsSegment) {
+                when (desktopLlamaTargetOsSegment.get()) {
                     "macos" -> "metal"
                     "windows", "linux" -> "vulkan"
                     else -> "cpu"
@@ -91,9 +156,9 @@ val desktopLlamaGpuBackend =
     }
 
 val desktopLlamaBuildDir =
-    desktopLlamaGpuBackend.map { backend -> layout.buildDirectory.dir("native/llama/$desktopLlamaPlatform/$backend").get() }
+    desktopLlamaGpuBackend.map { backend -> layout.buildDirectory.dir("native/llama/${desktopLlamaPlatform.get()}/$backend").get() }
 val desktopLlamaOutputDir = desktopLlamaBuildDir.map { it.dir("out") }
-val desktopLlamaResourcePath = "breeze-runtime/$desktopLlamaPlatform"
+val desktopLlamaResourcePath = providers.provider { "breeze-runtime/${desktopLlamaPlatform.get()}" }
 val desktopLlamaLibraryName = System.mapLibraryName("breeze_llama_jni")
 val cmakeExecutable =
     providers.provider {
@@ -101,6 +166,13 @@ val cmakeExecutable =
     }
 val llamaCppRelativePath = rootProject.extra["llamaCppRelativePath"] as String
 val llamaCppSourceDir = rootProject.layout.projectDirectory.dir(llamaCppRelativePath)
+
+val validateDesktopLlamaBuildHost by tasks.registering(ValidateDesktopLlamaBuildHostTask::class) {
+    group = "breeze"
+    description = "Validate that the Desktop llama runtime target matches the current build host."
+    targetPlatform.set(desktopLlamaPlatform)
+    hostPlatform.set(desktopLlamaHostPlatform)
+}
 
 fun detectCmakeExecutable(): String? {
     val androidSdkRoot =
@@ -137,11 +209,15 @@ fun detectCmakeExecutable(): String? {
 val configureDesktopLlamaRuntime by tasks.registering(Exec::class) {
     group = "breeze"
     description = "Configure the in-app Desktop llama.cpp JNI runtime."
-    dependsOn(rootProject.tasks.named("syncLlamaCppSubmodule"))
+    if (!llamaCppSourceDir.file("CMakeLists.txt").asFile.exists()) {
+        dependsOn(rootProject.tasks.named("syncLlamaCppSubmodule"))
+    }
+    dependsOn(validateDesktopLlamaBuildHost)
     val buildDir = desktopLlamaBuildDir.get().asFile
     inputs.files(fileTree("src/jvmMain/cpp"))
     inputs.dir(llamaCppSourceDir)
     inputs.property("desktopLlamaGpuBackend", desktopLlamaGpuBackend)
+    inputs.property("desktopLlamaPlatform", desktopLlamaPlatform)
     outputs.dir(desktopLlamaBuildDir)
     commandLine(
         cmakeExecutable.get(),
@@ -179,6 +255,16 @@ tasks.named<Copy>("jvmProcessResources") {
     dependsOn(buildDesktopLlamaRuntime)
     from(desktopLlamaOutputDir) {
         include(desktopLlamaLibraryName)
-        into(desktopLlamaResourcePath)
+        into(desktopLlamaResourcePath.get())
     }
+}
+
+val verifyDesktopLlamaBundledRuntime by tasks.registering(VerifyBundledDesktopLlamaRuntimeTask::class) {
+    group = "verification"
+    description = "Verify that the current Desktop llama runtime has been bundled into JVM resources."
+    dependsOn(tasks.named("jvmProcessResources"))
+    resourcesDirectory.set(layout.buildDirectory.dir("processedResources/jvm/main"))
+    resourcePath.set(desktopLlamaResourcePath)
+    libraryName.set(desktopLlamaLibraryName)
+    targetPlatform.set(desktopLlamaPlatform)
 }

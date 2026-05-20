@@ -3,6 +3,7 @@ package com.hrm.breeze.ui.screens.chat
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hrm.breeze.core.logging.Log
 import com.hrm.breeze.data.llm.ondevice.OnDeviceModelRepository
 import com.hrm.breeze.domain.model.Conversation
 import com.hrm.breeze.domain.model.LlmProviderId
@@ -34,6 +35,7 @@ data class ChatUiState(
     val reasoningEnabled: Boolean = false,
     val isSending: Boolean = false,
     val errorMessage: StringResource? = null,
+    val errorDetail: String? = null,
     val currentOnDeviceModel: OnDeviceModelState? = null,
 )
 
@@ -55,6 +57,7 @@ private data class ConversationSessionState(
     val reasoningEnabled: Boolean = false,
     val isSending: Boolean = false,
     val errorMessage: StringResource? = null,
+    val errorDetail: String? = null,
 )
 
 private data class ModelConfigState(
@@ -67,6 +70,10 @@ class ChatViewModel(
     private val modelConfigRepository: ModelConfigRepository,
     private val onDeviceModelRepository: OnDeviceModelRepository,
 ) : ViewModel() {
+    companion object {
+        private const val CHAT_VIEW_MODEL_LOG_TAG = "ChatViewModel"
+    }
+
     private val activeConversationId = MutableStateFlow(createConversationId())
     private val sessionStates = MutableStateFlow<Map<String, ConversationSessionState>>(emptyMap())
 
@@ -159,6 +166,7 @@ class ChatViewModel(
                 reasoningEnabled = scaffold.sessionState.reasoningEnabled,
                 isSending = scaffold.sessionState.isSending,
                 errorMessage = scaffold.sessionState.errorMessage,
+                errorDetail = scaffold.sessionState.errorDetail,
                 currentOnDeviceModel = detail.currentOnDeviceModel,
             )
         }.stateIn(
@@ -191,6 +199,7 @@ class ChatViewModel(
             copy(
                 draft = value,
                 errorMessage = null,
+                errorDetail = null,
             )
         }
     }
@@ -211,7 +220,10 @@ class ChatViewModel(
                 modelConfigRepository.setActiveConfig(modelId)
             }.onFailure {
                 updateSession(activeConversationId.value) {
-                    copy(errorMessage = Res.string.status_model_switch_failed)
+                    copy(
+                        errorMessage = Res.string.status_model_switch_failed,
+                        errorDetail = it.userFacingMessage(),
+                    )
                 }
             }
         }
@@ -222,6 +234,7 @@ class ChatViewModel(
             copy(
                 reasoningEnabled = enabled,
                 errorMessage = null,
+                errorDetail = null,
             )
         }
     }
@@ -236,16 +249,34 @@ class ChatViewModel(
         val activeModelConfig = state.value.activeModelConfig
         if (activeModelConfig?.modelId.isNullOrBlank()) {
             updateSession(conversationId) {
-                copy(errorMessage = Res.string.status_model_required_before_send)
+                copy(
+                    errorMessage = Res.string.status_model_required_before_send,
+                    errorDetail = null,
+                )
             }
             return
         }
         val resolvedModelConfig = checkNotNull(activeModelConfig)
-        if (resolvedModelConfig.providerId == LlmProviderId.Local && state.value.currentOnDeviceModel?.isReadyForChat != true) {
-            updateSession(conversationId) {
-                copy(errorMessage = Res.string.status_local_model_not_ready)
+        if (resolvedModelConfig.providerId == LlmProviderId.Local) {
+            val runtimeCapability = onDeviceModelRepository.runtimeCapability
+            if (!runtimeCapability.isAvailable) {
+                updateSession(conversationId) {
+                    copy(
+                        errorMessage = Res.string.status_local_model_not_ready,
+                        errorDetail = runtimeCapability.unavailableReason,
+                    )
+                }
+                return
             }
-            return
+            if (state.value.currentOnDeviceModel?.isReadyForChat != true) {
+                updateSession(conversationId) {
+                    copy(
+                        errorMessage = Res.string.status_local_model_not_ready,
+                        errorDetail = null,
+                    )
+                }
+                return
+            }
         }
 
         val reasoningEnabled = sessionState.reasoningEnabled
@@ -253,6 +284,7 @@ class ChatViewModel(
             copy(
                 draft = "",
                 errorMessage = null,
+                errorDetail = null,
                 isSending = true,
             )
         }
@@ -260,11 +292,15 @@ class ChatViewModel(
         viewModelScope.launch {
             runCatching {
                 chatRepository.sendMessage(conversationId, text, reasoningEnabled).collect {}
-            }.onFailure {
+            }.onFailure { throwable ->
+                Log.e(CHAT_VIEW_MODEL_LOG_TAG, throwable) {
+                    "Failed to send message conversationId=$conversationId model=${resolvedModelConfig.modelId}"
+                }
                 updateSession(conversationId) {
                     copy(
                         draft = text,
                         errorMessage = Res.string.status_send_failed,
+                        errorDetail = throwable.userFacingMessage(),
                     )
                 }
             }
@@ -294,3 +330,5 @@ class ChatViewModel(
 }
 
 internal fun createConversationId(): String = "conversation-${Clock.System.now().toEpochMilliseconds()}"
+
+private fun Throwable.userFacingMessage(): String? = message?.trim()?.takeIf(String::isNotEmpty)

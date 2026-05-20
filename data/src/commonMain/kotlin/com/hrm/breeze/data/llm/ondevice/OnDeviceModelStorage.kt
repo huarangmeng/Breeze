@@ -8,6 +8,8 @@ internal expect fun ensureModelDirectories(modelPaths: BreezeModelPaths)
 
 internal expect fun deleteModelFile(path: Path)
 
+internal expect fun modelFileExists(path: Path): Boolean
+
 internal expect suspend fun persistStatementToFile(
     statement: HttpStatement,
     tempPath: Path,

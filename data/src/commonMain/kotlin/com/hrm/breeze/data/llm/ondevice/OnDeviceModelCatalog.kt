@@ -66,4 +66,6 @@ object OnDeviceModelCatalog {
     fun requirePreset(presetId: String): OnDeviceModelPreset =
         presets.firstOrNull { it.id == presetId }
             ?: error("Unknown on-device preset: $presetId")
+
+    fun findPreset(presetId: String): OnDeviceModelPreset? = presets.firstOrNull { it.id == presetId }
 }

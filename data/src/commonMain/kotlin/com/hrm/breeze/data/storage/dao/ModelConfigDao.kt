@@ -31,4 +31,7 @@ interface ModelConfigDao {
 
     @Upsert
     suspend fun upsertModelConfig(config: ModelConfigEntity)
+
+    @Query("DELETE FROM model_configs WHERE id = :configId")
+    suspend fun deleteModelConfig(configId: String)
 }

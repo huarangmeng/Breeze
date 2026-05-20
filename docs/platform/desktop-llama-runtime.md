@@ -4,6 +4,10 @@ Breeze Desktop uses an in-process JNI bridge for on-device GGUF inference.
 The runtime uses llama.cpp GPU offload when the selected build backend exposes a GPU
 device. `auto` selects Metal on macOS, Vulkan on Windows/Linux, and CPU elsewhere.
 
+Desktop support is intended to cover both macOS and Windows as first-class targets.
+Linux stays in the same Desktop runtime family, but follows after macOS and Windows
+for validation and compatibility hardening.
+
 The native runtime is built from a pinned submodule:
 
 - Source: `third_party/llama.cpp`
@@ -28,6 +32,12 @@ To build and bundle the Desktop runtime directly:
 
 ```bash
 ./gradlew :runtime:llama:jvmProcessResources
+```
+
+To verify that the current host runtime was actually copied into JVM resources:
+
+```bash
+./gradlew :runtime:llama:verifyDesktopLlamaBundledRuntime
 ```
 
 GPU backend selection:
@@ -57,6 +67,18 @@ runtime module JVM resources pipeline, so no extra switch is required:
 ./gradlew :app:desktop:run
 ```
 
+Windows MSI packaging stays host-specific. The JNI runtime is bundled from the current
+build host, so a real Windows MSI must be built on a Windows host:
+
+```bash
+./gradlew :runtime:llama:verifyDesktopLlamaBundledRuntime
+./gradlew :app:desktop:packageMsi
+```
+
+If you explicitly set `-PbreezeDesktopLlamaTargetOs` or `-PbreezeDesktopLlamaTargetArch`,
+the target must still match the current build host. Cross-compiling the Desktop llama
+runtime is not supported yet; Windows DLLs and MSI artifacts must be produced on Windows.
+
 To run a real GGUF smoke test:
 
 ```bash
@@ -66,6 +88,13 @@ To run a real GGUF smoke test:
 
 Without `breezeSmokeGgufPath`, the smoke test exits early and does not require a local
 model file.
+
+JVM tests also cover the Desktop runtime path rules used by Windows packaging and cache
+installation, including:
+
+- `windows-x64` / `windows-arm64` platform segment mapping
+- `%APPDATA%/Breeze/models/runtime/native` cache resolution
+- bundled JVM resource path mapping for `breeze_llama_jni.dll`
 
 Runtime loading order:
 

@@ -3,6 +3,8 @@ package com.hrm.breeze.di
 import coil3.ImageLoader
 import com.hrm.breeze.core.coroutines.AppDispatchers
 import com.hrm.breeze.core.coroutines.defaultAppDispatchers
+import com.hrm.breeze.data.conversation.ConversationContextAssembler
+import com.hrm.breeze.data.conversation.ConversationSummarizer
 import com.hrm.breeze.data.image.createBreezeImageLoader
 import com.hrm.breeze.data.llm.LlmProviderRegistry
 import com.hrm.breeze.data.llm.LocalProvider
@@ -38,6 +40,8 @@ private val infrastructureModule =
             BreezeDatabase.create(dispatchers = get())
         }
         single { get<BreezeDatabase>().onDeviceModelAssetDao() }
+        single { ConversationContextAssembler() }
+        single { ConversationSummarizer(summaryDao = get<BreezeDatabase>().conversationSummaryDao()) }
         single<OpenAiCompatibleChatApi> { KtorOpenAiCompatibleChatApi(get()) }
         single<OnDeviceRuntime> { LlamaOnDeviceRuntime() }
         single {
@@ -66,6 +70,8 @@ private val infrastructureModule =
                 llmProviderRegistry = get(),
                 modelConfigRepository = get(),
                 settings = get(),
+                contextAssembler = get(),
+                conversationSummarizer = get(),
                 dispatchers = get(),
             )
         }

@@ -1,5 +1,6 @@
 package com.hrm.breeze
 
+import com.hrm.breeze.platform.platformInfo
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application

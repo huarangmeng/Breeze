@@ -1,7 +1,13 @@
 package com.hrm.breeze.runtime.llama
 
 import com.hrm.breeze.domain.model.InferenceRuntimeState
+import com.hrm.breeze.platform.PlatformKind
+import com.hrm.breeze.platform.platformInfo
 import com.hrm.breeze.runtime.api.InferenceMessage
+import com.hrm.breeze.runtime.api.OnDeviceRuntimeBackend
+import com.hrm.breeze.runtime.api.OnDeviceRuntimeCompletionRequest
+import com.hrm.breeze.runtime.api.OnDeviceRuntimeLaunchRequest
+import com.hrm.breeze.runtime.api.OnDeviceRuntimeTargetPlatform
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -20,6 +26,17 @@ private class JvmInProcessLlamaRuntimeBridge : OnDeviceRuntimeBridge {
     private val modelMutex = Mutex()
     private var loadedModel: LoadedModel? = null
 
+    override val capability =
+        desktopJvmLlamaCapability(
+            defaultBackend = detectJvmDefaultBackend(),
+            targetPlatforms = setOf(
+                OnDeviceRuntimeTargetPlatform.MacOs,
+                OnDeviceRuntimeTargetPlatform.Windows,
+                OnDeviceRuntimeTargetPlatform.Linux,
+            ),
+            supportedBackends = supportedJvmBackends(),
+        )
+
     override suspend fun ensureModelReady(request: OnDeviceRuntimeLaunchRequest): InferenceRuntimeState =
         if (runCatching { loadModel(request) }.isSuccess) {
             InferenceRuntimeState.Ready
@@ -27,7 +44,7 @@ private class JvmInProcessLlamaRuntimeBridge : OnDeviceRuntimeBridge {
             InferenceRuntimeState.Failed
         }
 
-    override fun streamCompletion(request: OnDeviceRuntimeRequest): Flow<String> = callbackFlow {
+    override fun streamCompletion(request: OnDeviceRuntimeCompletionRequest): Flow<String> = callbackFlow {
         val normalized = request.normalized()
         val loadedModel = loadModel(normalized.toLaunchRequest())
         val generationHandle =
@@ -146,7 +163,10 @@ private class JvmLlamaRuntimeInstaller {
     }
 
     private fun bundledRuntimeResourcePath(fileName: String): String =
-        "/breeze-runtime/${runtimePlatformSegment()}/$fileName"
+        bundledRuntimeResourcePath(
+            platformSegment = runtimePlatformSegment(),
+            fileName = fileName,
+        )
 
     private fun moveReplacing(
         source: File,
@@ -269,34 +289,6 @@ private interface BreezeLlamaTokenCallback {
     fun onError(message: String)
 }
 
-private fun OnDeviceRuntimeLaunchRequest.normalized(): OnDeviceRuntimeLaunchRequest {
-    require(contextWindow > 0) { "Context window must be positive" }
-    val localPath = requireLocalPath()
-    check(File(localPath).isFile) { "Downloaded on-device model file is missing: $localPath" }
-    return copy(localPath = localPath)
-}
-
-private fun OnDeviceRuntimeRequest.normalized(): OnDeviceRuntimeRequest {
-    require(contextWindow > 0) { "Context window must be positive" }
-    require(maxTokens > 0) { "Max tokens must be positive" }
-    val localPath = requireLocalPath()
-    check(File(localPath).isFile) { "Downloaded on-device model file is missing: $localPath" }
-    return copy(localPath = localPath)
-}
-
-private fun OnDeviceRuntimeLaunchRequest.requireLocalPath(): String =
-    checkNotNull(localPath?.takeIf(String::isNotBlank)) { "Missing local model file path" }
-
-private fun OnDeviceRuntimeRequest.requireLocalPath(): String =
-    checkNotNull(localPath?.takeIf(String::isNotBlank)) { "Missing local model file path" }
-
-private fun OnDeviceRuntimeRequest.toLaunchRequest(): OnDeviceRuntimeLaunchRequest =
-    OnDeviceRuntimeLaunchRequest(
-        modelId = modelId,
-        localPath = requireLocalPath(),
-        contextWindow = contextWindow,
-    )
-
 private fun List<InferenceMessage>.toChatMlPrompt(): String =
     buildString {
         val hasSystemMessage = this@toChatMlPrompt.any { message -> message.role == InferenceMessage.Role.System }
@@ -322,14 +314,16 @@ private fun List<InferenceMessage>.toChatMlPrompt(): String =
         append("<|im_start|>assistant\n")
     }
 
-private fun resolveJvmRuntimeDirectory(): File {
-    val userHome = System.getProperty("user.home")
-    val osName = System.getProperty("os.name").lowercase()
+internal fun resolveJvmRuntimeDirectory(
+    userHome: String = System.getProperty("user.home"),
+    platformKind: PlatformKind = platformInfo.kind,
+    appData: String? = System.getenv("APPDATA"),
+    xdgDataHome: String? = System.getenv("XDG_DATA_HOME"),
+): File {
     val baseDirectory =
-        when {
-            osName.contains("mac") -> File(userHome, "Library/Application Support/Breeze")
-            osName.contains("win") -> {
-                val appData = System.getenv("APPDATA")
+        when (platformKind) {
+            PlatformKind.MacOS -> File(userHome, "Library/Application Support/Breeze")
+            PlatformKind.Windows -> {
                 if (appData.isNullOrBlank()) {
                     File(userHome, "AppData/Roaming/Breeze")
                 } else {
@@ -337,7 +331,6 @@ private fun resolveJvmRuntimeDirectory(): File {
                 }
             }
             else -> {
-                val xdgDataHome = System.getenv("XDG_DATA_HOME")
                 if (xdgDataHome.isNullOrBlank()) {
                     File(userHome, ".local/share/Breeze")
                 } else {
@@ -348,15 +341,21 @@ private fun resolveJvmRuntimeDirectory(): File {
     return File(baseDirectory, "models/runtime/native")
 }
 
-private fun runtimePlatformSegment(): String {
-    val os = System.getProperty("os.name").lowercase()
-    val arch = System.getProperty("os.arch").lowercase()
+internal fun runtimePlatformSegment(
+    platformKind: PlatformKind = platformInfo.kind,
+    archName: String = System.getProperty("os.arch"),
+): String {
+    val arch = archName.lowercase()
     val osSegment =
-        when {
-            os.contains("mac") -> "macos"
-            os.contains("win") -> "windows"
-            os.contains("linux") -> "linux"
-            else -> os.replace(Regex("[^a-z0-9]+"), "-")
+        when (platformKind) {
+            PlatformKind.MacOS -> "macos"
+            PlatformKind.Windows -> "windows"
+            PlatformKind.Linux -> "linux"
+            PlatformKind.Android -> "android"
+            PlatformKind.IOS -> "ios"
+            PlatformKind.WebJs -> "web-js"
+            PlatformKind.WebWasm -> "web-wasm"
+            PlatformKind.Unknown -> "unknown"
         }
     val archSegment =
         when {
@@ -367,6 +366,29 @@ private fun runtimePlatformSegment(): String {
     return "$osSegment-$archSegment"
 }
 
+internal fun bundledRuntimeResourcePath(
+    platformSegment: String,
+    fileName: String,
+): String = "/breeze-runtime/$platformSegment/$fileName"
+
 private const val BREEZE_LLAMA_LIBRARY_NAME = "breeze_llama_jni"
 private const val ENV_BREEZE_LLAMA_JNI_LIBRARY_PATH = "BREEZE_LLAMA_JNI_LIBRARY_PATH"
 private const val DEFAULT_STREAM_COMPARE_BUFFER_SIZE = 8 * 1024
+
+private fun detectJvmDefaultBackend(): OnDeviceRuntimeBackend =
+    when (platformInfo.kind) {
+        PlatformKind.MacOS -> OnDeviceRuntimeBackend.Metal
+        PlatformKind.Windows,
+        PlatformKind.Linux,
+        -> OnDeviceRuntimeBackend.Vulkan
+        else -> OnDeviceRuntimeBackend.Cpu
+    }
+
+private fun supportedJvmBackends(): Set<OnDeviceRuntimeBackend> =
+    when (platformInfo.kind) {
+        PlatformKind.MacOS -> setOf(OnDeviceRuntimeBackend.Cpu, OnDeviceRuntimeBackend.Metal)
+        PlatformKind.Windows,
+        PlatformKind.Linux,
+        -> setOf(OnDeviceRuntimeBackend.Cpu, OnDeviceRuntimeBackend.Vulkan)
+        else -> setOf(OnDeviceRuntimeBackend.Cpu)
+    }

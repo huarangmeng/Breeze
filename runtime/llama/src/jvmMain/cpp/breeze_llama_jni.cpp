@@ -25,6 +25,7 @@ struct ModelHandle {
 
 struct GenerationHandle {
     std::atomic_bool cancelled{false};
+    std::atomic_bool cleanup_after_completion{false};
     jobject callback = nullptr;
     jmethodID on_token = nullptr;
     jmethodID on_complete = nullptr;
@@ -239,6 +240,13 @@ void run_generation(
     } catch (...) {
         emit_error(env, generation, "Unknown llama.cpp generation error");
     }
+    if (generation->cleanup_after_completion.load()) {
+        if (generation->callback != nullptr) {
+            env->DeleteGlobalRef(generation->callback);
+            generation->callback = nullptr;
+        }
+        delete generation;
+    }
     detach_env(attached_env);
 }
 
@@ -369,10 +377,16 @@ Java_com_hrm_breeze_runtime_llama_BreezeLlamaNativeBridge_nativeCancel(
     }
     generation->cancelled.store(true);
     if (generation->worker.joinable()) {
+        if (generation->worker.get_id() == std::this_thread::get_id()) {
+            generation->cleanup_after_completion.store(true);
+            generation->worker.detach();
+            return;
+        }
         generation->worker.join();
     }
     if (generation->callback != nullptr) {
         env->DeleteGlobalRef(generation->callback);
+        generation->callback = nullptr;
     }
     delete generation;
 }

@@ -4,11 +4,28 @@ import com.hrm.breeze.domain.model.InferenceRuntimeState
 import kotlinx.coroutines.flow.Flow
 
 interface OnDeviceRuntime {
+    val capability: OnDeviceRuntimeCapability
+        get() =
+            OnDeviceRuntimeCapability.unsupported(
+                reason = "On-device runtime is not available on this platform",
+            )
+
+    suspend fun ensureModelReady(request: OnDeviceRuntimeLaunchRequest): InferenceRuntimeState
+
+    fun streamCompletion(request: OnDeviceRuntimeCompletionRequest): Flow<String>
+
     suspend fun ensureModelReady(
         modelId: String,
         localPath: String?,
         contextWindow: Int,
-    ): InferenceRuntimeState
+    ): InferenceRuntimeState =
+        ensureModelReady(
+            OnDeviceRuntimeLaunchRequest(
+                modelId = modelId,
+                localPath = localPath,
+                contextWindow = contextWindow,
+            )
+        )
 
     fun streamCompletion(
         modelId: String,
@@ -18,7 +35,109 @@ interface OnDeviceRuntime {
         topP: Float,
         maxTokens: Int,
         contextWindow: Int,
-    ): Flow<String>
+    ): Flow<String> =
+        streamCompletion(
+            OnDeviceRuntimeCompletionRequest(
+                modelId = modelId,
+                localPath = localPath,
+                messages = messages,
+                temperature = temperature,
+                topP = topP,
+                maxTokens = maxTokens,
+                contextWindow = contextWindow,
+            )
+        )
+}
+
+data class OnDeviceRuntimeLaunchRequest(
+    val modelId: String,
+    val localPath: String?,
+    val contextWindow: Int,
+)
+
+data class OnDeviceRuntimeCompletionRequest(
+    val modelId: String,
+    val localPath: String?,
+    val messages: List<InferenceMessage>,
+    val temperature: Float,
+    val topP: Float,
+    val maxTokens: Int,
+    val contextWindow: Int,
+)
+
+data class OnDeviceRuntimeCapability(
+    val isAvailable: Boolean,
+    val family: OnDeviceRuntimeFamily,
+    val targetPlatforms: Set<OnDeviceRuntimeTargetPlatform> = emptySet(),
+    val defaultBackend: OnDeviceRuntimeBackend = OnDeviceRuntimeBackend.Cpu,
+    val supportedBackends: Set<OnDeviceRuntimeBackend> = setOf(OnDeviceRuntimeBackend.Cpu),
+    val supportsModelPersistence: Boolean = false,
+    val unavailableReason: String? = null,
+) {
+    companion object {
+        fun desktopJvm(
+            defaultBackend: OnDeviceRuntimeBackend,
+            targetPlatforms: Set<OnDeviceRuntimeTargetPlatform> =
+                setOf(
+                    OnDeviceRuntimeTargetPlatform.MacOs,
+                    OnDeviceRuntimeTargetPlatform.Windows,
+                ),
+            supportedBackends: Set<OnDeviceRuntimeBackend> = setOf(OnDeviceRuntimeBackend.Cpu, defaultBackend),
+            supportsModelPersistence: Boolean = true,
+        ): OnDeviceRuntimeCapability =
+            OnDeviceRuntimeCapability(
+                isAvailable = true,
+                family = OnDeviceRuntimeFamily.DesktopJvm,
+                targetPlatforms = targetPlatforms,
+                defaultBackend = defaultBackend,
+                supportedBackends = supportedBackends,
+                supportsModelPersistence = supportsModelPersistence,
+            )
+
+        fun unsupported(
+            reason: String,
+            family: OnDeviceRuntimeFamily = OnDeviceRuntimeFamily.Unsupported,
+            targetPlatforms: Set<OnDeviceRuntimeTargetPlatform> = emptySet(),
+            supportsModelPersistence: Boolean = false,
+        ): OnDeviceRuntimeCapability =
+            OnDeviceRuntimeCapability(
+                isAvailable = false,
+                family = family,
+                targetPlatforms = targetPlatforms,
+                defaultBackend = OnDeviceRuntimeBackend.Cpu,
+                supportedBackends = setOf(OnDeviceRuntimeBackend.Cpu),
+                supportsModelPersistence = supportsModelPersistence,
+                unavailableReason = reason,
+            )
+    }
+}
+
+enum class OnDeviceRuntimeFamily {
+    DesktopJvm,
+    AndroidJni,
+    AppleNative,
+    WebAssembly,
+    Unsupported,
+}
+
+enum class OnDeviceRuntimeTargetPlatform {
+    MacOs,
+    Windows,
+    Linux,
+    Android,
+    Ios,
+    Web,
+}
+
+enum class OnDeviceRuntimeBackend {
+    Cpu,
+    Metal,
+    Vulkan,
+    Cuda,
+    Hip,
+    Sycl,
+    OpenCl,
+    WebGpu,
 }
 
 data class InferenceMessage(

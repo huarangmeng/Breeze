@@ -1,7 +1,7 @@
 package com.hrm.breeze.ui.screens.ondevicemodels
 
 import com.hrm.breeze.openDirectoryForPath
-import com.hrm.breeze.platformInfo
+import com.hrm.breeze.platform.platformInfo
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -134,6 +134,22 @@ fun OnDeviceModelsScreen(
                         color = extra.textSecondary,
                     )
                 }
+                state.statusDetail?.let { statusDetail ->
+                    Text(
+                        text = statusDetail,
+                        style = typography.bodySmall,
+                        color = extra.textSecondary,
+                    )
+                }
+                state.runtimeUnavailableReason
+                    ?.takeIf { it != state.statusDetail }
+                    ?.let { runtimeUnavailableReason ->
+                    Text(
+                        text = runtimeUnavailableReason,
+                        style = typography.bodySmall,
+                        color = extra.textSecondary,
+                    )
+                }
 
                 state.models.forEach { model ->
                     Surface(
@@ -189,7 +205,10 @@ fun OnDeviceModelsScreen(
                                 val localPath = model.localPath
                                 Button(
                                     onClick = { onDownload(model.preset.id) },
-                                    enabled = state.activePresetId != model.preset.id && model.downloadStatus != OnDeviceDownloadStatus.Downloaded,
+                                    enabled =
+                                        state.canDownloadModels &&
+                                            state.activePresetId != model.preset.id &&
+                                            model.downloadStatus != OnDeviceDownloadStatus.Downloaded,
                                     shape = shapes.medium,
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = scheme.primary,
@@ -201,7 +220,8 @@ fun OnDeviceModelsScreen(
                                 TextButton(
                                     onClick = { onSelect(model.preset.id) },
                                     enabled =
-                                        !model.isCurrent &&
+                                        state.canSelectForChat &&
+                                            !model.isCurrent &&
                                             state.activePresetId != model.preset.id &&
                                             model.downloadStatus == OnDeviceDownloadStatus.Downloaded,
                                     shape = shapes.medium,
@@ -227,7 +247,10 @@ fun OnDeviceModelsScreen(
                                 }
                                 TextButton(
                                     onClick = { onDelete(model.preset.id) },
-                                    enabled = state.activePresetId != model.preset.id && model.downloadStatus == OnDeviceDownloadStatus.Downloaded,
+                                    enabled =
+                                        state.canDownloadModels &&
+                                            state.activePresetId != model.preset.id &&
+                                            model.downloadStatus == OnDeviceDownloadStatus.Downloaded,
                                     shape = shapes.medium,
                                 ) {
                                     Text(stringResource(Res.string.delete_model))
