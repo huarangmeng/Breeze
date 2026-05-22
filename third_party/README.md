@@ -7,8 +7,8 @@ of its local runtime.
 
 - Path: `third_party/llama.cpp`
 - Upstream: https://github.com/ggml-org/llama.cpp
-- Pinned tag: `b9246`
-- Pinned commit: `871b0b70f81d26494613ad7a9dcb933b1aec4611`
+- Pinned tag: `b9279`
+- Pinned commit: `47c0eda9d4980bdb3031f6affe98ccaf6e1e69ee`
 
 This is a Git submodule pinned to a reviewed upstream tag. Keep the full upstream source
 tree so Breeze can build platform GPU backends without repeatedly copying missing
@@ -26,6 +26,22 @@ git submodule update --init --recursive third_party/llama.cpp
 ## Updating llama.cpp
 
 Use an explicit upstream tag or commit. Do not track `master` in Gradle or CMake.
+
+Recommended workflow:
+
+```bash
+./scripts/pin-llama-cpp.sh
+```
+
+The script defaults to the current reviewed stable tag `b9279`. You can also pass an
+explicit upstream tag or commit:
+
+```bash
+./scripts/pin-llama-cpp.sh b9279
+./scripts/pin-llama-cpp.sh <tag-or-commit>
+```
+
+Manual workflow:
 
 1. Fetch the reviewed upstream revision in the submodule:
 
@@ -71,3 +87,10 @@ Use an explicit upstream tag or commit. Do not track `master` in Gradle or CMake
 
    The Desktop build should not introduce unexpected runtime dependencies beyond system
    libraries, Metal/Accelerate on macOS, and libc++.
+
+6. Commit the superproject pointer update:
+
+   ```bash
+   git add third_party/llama.cpp
+   git commit -m "Pin llama.cpp to <tag-or-commit>"
+   ```

@@ -157,13 +157,20 @@ Desktop runtime 使用 vendored `llama.cpp` 构建当前 host 平台动态库，
 来源：
 
 - Source: `third_party/llama.cpp`
-- Pinned tag: `b9246`
-- Pinned commit: `871b0b70f81d26494613ad7a9dcb933b1aec4611`
+- Pinned tag: `b9279`
+- Pinned commit: `47c0eda9d4980bdb3031f6affe98ccaf6e1e69ee`
 
 若项目同步时缺失 submodule，根 Gradle 会尝试自动执行：
 
 ```bash
 git submodule update --init --recursive -- third_party/llama.cpp
+```
+
+推荐使用仓库脚本把 `llama.cpp` 固定到审核过的稳定版本，而不是直接跟踪 `master`：
+
+```bash
+./scripts/pin-llama-cpp.sh
+./scripts/pin-llama-cpp.sh b9279
 ```
 
 直接构建并打包 Desktop runtime：
