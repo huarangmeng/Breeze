@@ -6,9 +6,7 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,16 +15,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.hrm.breeze.generated.resources.*
 import com.hrm.breeze.i18n.BreezeLanguagePreference
 import com.hrm.breeze.i18n.languagePreferenceLabelRes
+import com.hrm.breeze.ui.components.BreezePageHeader
 import com.hrm.breeze.ui.theme.BreezeTheme
 import org.jetbrains.compose.resources.stringResource
 
@@ -60,32 +57,13 @@ fun SettingsHubScreen(
             shape = shapes.large,
             border = BorderStroke(spacing.hairline, scheme.outlineVariant),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = spacing.sm, vertical = spacing.sm),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = onBackToChat, shape = shapes.pill) {
-                    Text(stringResource(Res.string.back))
-                }
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = stringResource(Res.string.settings),
-                        style = typography.titleMedium,
-                        color = scheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(Res.string.settings_subtitle),
-                        style = typography.bodySmall,
-                        color = extra.textSecondary,
-                    )
-                }
-                Box(modifier = Modifier.padding(horizontal = spacing.sm))
-            }
+            BreezePageHeader(
+                title = stringResource(Res.string.settings),
+                subtitle = stringResource(Res.string.settings_subtitle),
+                showBackButton = true,
+                onBack = onBackToChat,
+                modifier = Modifier.padding(spacing.md),
+            )
         }
 
         Surface(

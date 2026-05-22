@@ -112,10 +112,10 @@ internal fun ChatMainPanel(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    start = if (compactMode) spacing.sm else spacing.xl,
-                    top = if (compactMode) spacing.sm else spacing.md + desktopTopInset,
-                    end = if (compactMode) spacing.sm else spacing.xl,
-                    bottom = if (compactMode) spacing.sm else spacing.lg,
+                    start = spacing.md,
+                    top = spacing.md + if (compactMode) 0.dp else desktopTopInset,
+                    end = spacing.md,
+                    bottom = spacing.md,
                 ),
             verticalArrangement = Arrangement.spacedBy(spacing.md),
             horizontalAlignment = Alignment.CenterHorizontally,

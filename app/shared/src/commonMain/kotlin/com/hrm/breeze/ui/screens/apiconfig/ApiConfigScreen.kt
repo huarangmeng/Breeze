@@ -27,9 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import com.hrm.breeze.generated.resources.*
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
+import com.hrm.breeze.ui.components.BreezePageHeader
 import com.hrm.breeze.ui.theme.BreezeTheme
 import org.jetbrains.compose.resources.stringResource
 
@@ -60,7 +60,7 @@ fun ApiConfigScreen(
     } else {
         modifier
             .fillMaxSize()
-            .padding(spacing.lg)
+            .padding(spacing.md)
     }
 
     Box(
@@ -82,7 +82,7 @@ fun ApiConfigScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(if (embeddedMode) spacing.lg else spacing.xl)
+                    .padding(spacing.md)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(spacing.xl),
             ) {
@@ -99,8 +99,8 @@ fun ApiConfigScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(spacing.lg),
-                        verticalArrangement = Arrangement.spacedBy(spacing.lg),
+                            .padding(spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(spacing.md),
                     ) {
                         ApiFieldSection(
                             state = state,
@@ -128,41 +128,11 @@ private fun ApiConfigHeader(
     onBack: () -> Unit,
     showBackButton: Boolean,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val shapes = BreezeTheme.shapes
-    val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
-
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        if (showBackButton) {
-            TextButton(
-                onClick = onBack,
-                modifier = Modifier.align(Alignment.CenterStart),
-                shape = shapes.medium,
-                colors = ButtonDefaults.textButtonColors(
-                    containerColor = scheme.surface,
-                    contentColor = scheme.onSurface,
-                ),
-            ) {
-                Text("<")
-            }
-        }
-
-        Column(
-            modifier = Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(spacing.xxs),
-        ) {
-            Text(
-                text = stringResource(Res.string.api_configuration),
-                style = typography.titleLarge,
-                color = scheme.onBackground,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
+    BreezePageHeader(
+        title = stringResource(Res.string.api_configuration),
+        showBackButton = showBackButton,
+        onBack = onBack,
+    )
 }
 
 @Composable

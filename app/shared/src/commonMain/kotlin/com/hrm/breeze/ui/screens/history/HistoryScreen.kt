@@ -31,6 +31,7 @@ import com.hrm.breeze.domain.model.Message
 import com.hrm.breeze.generated.resources.*
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
 import com.hrm.breeze.ui.adaptive.PaneMode
+import com.hrm.breeze.ui.components.BreezePageHeader
 import com.hrm.breeze.ui.theme.BreezeTheme
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
@@ -57,18 +58,18 @@ fun HistoryScreen(
         }
     }
 
-    if (windowInfo.paneMode == PaneMode.Single) {
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(spacing.md),
-            verticalArrangement = Arrangement.spacedBy(spacing.md),
-        ) {
-            CompactHistoryHeader(
-                onBackToChat = onBackToChat,
-                onNewConversation = onNewConversation,
-                previewMode = previewMode,
-            )
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(spacing.md),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
+        CompactHistoryHeader(
+            onBackToChat = onBackToChat,
+            onNewConversation = onNewConversation,
+            previewMode = previewMode,
+        )
+        if (windowInfo.paneMode == PaneMode.Single) {
             HistoryListPanel(
                 conversations = filteredConversations,
                 activeConversationId = state.activeConversationId,
@@ -78,30 +79,25 @@ fun HistoryScreen(
                 modifier = Modifier.weight(1f),
             )
             HistoryDetailPanel(state = state)
+        } else {
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            ) {
+                HistorySidebar(
+                    state = state,
+                    modifier = Modifier.weight(0.24f),
+                )
+                HistoryListPanel(
+                    conversations = filteredConversations,
+                    activeConversationId = state.activeConversationId,
+                    query = query,
+                    onQueryChange = { query = it },
+                    onConversationSelected = onConversationSelected,
+                    modifier = Modifier.weight(0.76f),
+                )
+            }
         }
-        return
-    }
-
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(spacing.md),
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-    ) {
-        HistorySidebar(
-            state = state,
-            onNewConversation = onNewConversation,
-            previewMode = previewMode,
-            modifier = Modifier.weight(0.24f),
-        )
-        HistoryListPanel(
-            conversations = filteredConversations,
-            activeConversationId = state.activeConversationId,
-            query = query,
-            onQueryChange = { query = it },
-            onConversationSelected = onConversationSelected,
-            modifier = Modifier.weight(0.76f),
-        )
     }
 }
 
@@ -114,60 +110,41 @@ private fun CompactHistoryHeader(
     val scheme = MaterialTheme.colorScheme
     val shapes = BreezeTheme.shapes
     val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
-    val extra = BreezeTheme.extendedColors
 
     Surface(
         color = scheme.surfaceVariant.copy(alpha = 0.46f),
         shape = shapes.large,
         border = BorderStroke(spacing.hairline, scheme.outlineVariant),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = spacing.sm, vertical = spacing.sm),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(
-                onClick = onBackToChat,
-                shape = shapes.medium,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = scheme.surface,
-                    contentColor = scheme.onSurface,
-                ),
-            ) { Text(stringResource(Res.string.back)) }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = stringResource(Res.string.history_list),
-                    style = typography.titleMedium,
-                    color = scheme.onSurface,
-                )
-                Text(
-                    text = if (previewMode) stringResource(Res.string.history_preview_route) else stringResource(Res.string.history_local_subtitle),
-                    style = typography.bodySmall,
-                    color = extra.textSecondary,
-                )
-            }
-            Button(
-                onClick = onNewConversation,
-                shape = shapes.medium,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = scheme.primaryContainer,
-                    contentColor = scheme.primary,
-                ),
-            ) { Text(stringResource(Res.string.new_chat)) }
-        }
+        BreezePageHeader(
+            title = stringResource(Res.string.history_list),
+            subtitle = if (previewMode) {
+                stringResource(Res.string.history_preview_route)
+            } else {
+                stringResource(Res.string.history_local_subtitle)
+            },
+            showBackButton = true,
+            onBack = onBackToChat,
+            trailingContent = {
+                Button(
+                    onClick = onNewConversation,
+                    shape = shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = scheme.primaryContainer,
+                        contentColor = scheme.primary,
+                    ),
+                ) {
+                    Text(stringResource(Res.string.new_chat))
+                }
+            },
+            modifier = Modifier.padding(spacing.md),
+        )
     }
 }
 
 @Composable
 private fun HistorySidebar(
     state: HistoryUiState,
-    onNewConversation: () -> Unit,
-    previewMode: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -185,36 +162,9 @@ private fun HistorySidebar(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(spacing.lg),
+                .padding(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(spacing.xxs),
-            ) {
-                Text(
-                    text = stringResource(Res.string.history_sidebar_title),
-                    style = typography.titleLarge,
-                    color = scheme.onSurface,
-                )
-                Text(
-                    text = if (previewMode) stringResource(Res.string.history_preview_layout) else stringResource(Res.string.history_local_subtitle),
-                    style = typography.bodySmall,
-                    color = extra.textSecondary,
-                )
-            }
-
-            Button(
-                onClick = onNewConversation,
-                modifier = Modifier.fillMaxWidth(),
-                shape = shapes.medium,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = scheme.primary,
-                    contentColor = scheme.onPrimary,
-                ),
-            ) {
-                Text("+  ${stringResource(Res.string.new_chat)}")
-            }
-
             Surface(
                 color = scheme.surfaceVariant,
                 shape = shapes.medium,
@@ -263,7 +213,7 @@ private fun HistoryListPanel(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(spacing.lg),
+                .padding(spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
             OutlinedTextField(

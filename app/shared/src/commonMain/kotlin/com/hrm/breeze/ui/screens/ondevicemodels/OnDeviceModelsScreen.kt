@@ -23,7 +23,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import com.hrm.breeze.domain.model.OnDeviceDownloadStatus
 import com.hrm.breeze.domain.model.OnDeviceModelState
 import com.hrm.breeze.generated.resources.Res
@@ -38,6 +37,7 @@ import com.hrm.breeze.generated.resources.status_downloaded
 import com.hrm.breeze.generated.resources.status_downloading
 import com.hrm.breeze.generated.resources.status_not_downloaded
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
+import com.hrm.breeze.ui.components.BreezePageHeader
 import com.hrm.breeze.ui.theme.BreezeTheme
 import kotlin.math.ln
 import kotlin.math.pow
@@ -68,7 +68,7 @@ fun OnDeviceModelsScreen(
         } else {
             modifier
                 .fillMaxSize()
-                .padding(spacing.lg)
+                .padding(spacing.md)
         }
 
     Box(
@@ -91,41 +91,16 @@ fun OnDeviceModelsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(if (embeddedMode) spacing.lg else spacing.xl)
+                    .padding(spacing.md)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(spacing.lg),
             ) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    if (showBackButton) {
-                        TextButton(
-                            onClick = onBack,
-                            modifier = Modifier.align(Alignment.CenterStart),
-                            shape = shapes.medium,
-                        ) {
-                            Text("<")
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(spacing.xxs),
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.on_device_models),
-                            style = typography.titleLarge,
-                            color = scheme.onBackground,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            text = stringResource(Res.string.on_device_models_description),
-                            style = typography.bodySmall,
-                            color = extra.textSecondary,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                }
+                BreezePageHeader(
+                    title = stringResource(Res.string.on_device_models),
+                    subtitle = stringResource(Res.string.on_device_models_description),
+                    showBackButton = showBackButton && !embeddedMode,
+                    onBack = onBack,
+                )
 
                 state.statusMessage?.let { statusMessage ->
                     Text(
@@ -161,7 +136,7 @@ fun OnDeviceModelsScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(spacing.lg),
+                                .padding(spacing.md),
                             verticalArrangement = Arrangement.spacedBy(spacing.sm),
                         ) {
                             Text(

@@ -23,9 +23,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import com.hrm.breeze.generated.resources.*
 import com.hrm.breeze.ui.adaptive.LocalWindowInfo
+import com.hrm.breeze.ui.components.BreezePageHeader
 import com.hrm.breeze.ui.theme.BreezeTheme
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -58,7 +58,7 @@ fun ModelSettingsScreen(
     } else {
         modifier
             .fillMaxSize()
-            .padding(spacing.lg)
+            .padding(spacing.md)
     }
 
     Box(
@@ -80,7 +80,7 @@ fun ModelSettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(if (embeddedMode) spacing.lg else spacing.xl)
+                    .padding(spacing.md)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(spacing.xl),
             ) {
@@ -99,8 +99,8 @@ fun ModelSettingsScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(spacing.lg),
-                        verticalArrangement = Arrangement.spacedBy(spacing.lg),
+                            .padding(spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(spacing.md),
                     ) {
                         ModelSelectionSection(
                             state = state,
@@ -161,57 +161,27 @@ private fun ModelSettingsHeader(
     onBack: () -> Unit,
     showBackButton: Boolean,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val shapes = BreezeTheme.shapes
-    val spacing = BreezeTheme.spacing
-    val typography = BreezeTheme.typography
-    val extra = BreezeTheme.extendedColors
-
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        if (showBackButton) {
-            TextButton(
-                onClick = onBack,
-                modifier = Modifier.align(Alignment.CenterStart),
-                shape = shapes.medium,
-                colors = ButtonDefaults.textButtonColors(
-                    containerColor = scheme.surface,
-                    contentColor = scheme.onSurface,
-                ),
-            ) {
-                Text("<")
-            }
-        }
-
-        Column(
-            modifier = Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(spacing.xxs),
-        ) {
-            Text(
-                text = stringResource(Res.string.model_parameters),
-                style = typography.titleLarge,
-                color = scheme.onBackground,
-                textAlign = TextAlign.Center,
+    BreezePageHeader(
+        title = stringResource(Res.string.model_parameters),
+        subtitle = buildString {
+            append(
+                if (previewMode) {
+                    stringResource(Res.string.preview_parameter_layout)
+                } else {
+                    stringResource(Res.string.adjust_model_parameters)
+                },
             )
-            Text(
-                text = if (previewMode) stringResource(Res.string.preview_parameter_layout) else stringResource(Res.string.adjust_model_parameters),
-                style = typography.bodySmall,
-                color = extra.textSecondary,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(
+            append('\n')
+            append(
+                stringResource(
                     Res.string.provider_label,
                     state.providerDisplayName.ifBlank { stringResource(Res.string.model_not_configured) },
                 ),
-                style = typography.bodySmall,
-                color = extra.textSecondary,
-                textAlign = TextAlign.Center,
             )
-        }
-    }
+        },
+        showBackButton = showBackButton,
+        onBack = onBack,
+    )
 }
 
 @Composable
