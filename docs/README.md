@@ -41,6 +41,7 @@
 - [design/i18n.md](design/i18n.md)：i18n 语言范围、系统语言回退策略与 UI 接入方式
 - [platform/persistence-paths.md](platform/persistence-paths.md)：跨平台持久化路径策略（Room3 / DataStore 的目录约束与平台映射）
 - [platform/on-device-llama-all-platform.md](platform/on-device-llama-all-platform.md)：端侧 llama runtime 的统一平台文档，覆盖全平台架构、Desktop/Android/iOS 构建链路、当前状态与后续实施顺序
+- [platform/desktop-packaging.md](platform/desktop-packaging.md)：Desktop 安装包打包说明，覆盖 macOS `DMG`、Windows `MSI`、脚本入口、主机限制以及签名/混淆建议
 
 ## 根目录保留项
 
